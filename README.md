@@ -4,7 +4,6 @@
 
 > "Tests pass" is not the same thing as "safe to ship." SafeLane reads every pull request the way a careful senior engineer would, and gives it a **Deployment Confidence Score (0–100)** with a plain-English explanation — posted right on the PR.
 
-This README is written for a beginner. If a term is unfamiliar, keep reading — it's explained the first time it comes up.
 
 ---
 
@@ -39,47 +38,6 @@ A normal CI pipeline only asks: *"did the tests pass?"* It never asks whether th
 
 This is the one piece of SafeLane that's allowed to actually write to GitHub — post a comment, fail a check. It's called "fixed-template" on purpose: it fills in a pre-written template with the score and findings, rather than letting an AI model freely decide what text (or what action) to send to GitHub. This is a safety design choice — it means SafeLane's AI components can only ever *explain*, never *act*, on GitHub.
 
-## How the Existing Code Contributes
-
-SafeLane v2 is not a rewrite. Most of the hard work is already built and working — it just used older internal names. This table shows what each old piece became:
-
-| Old name (in the code) | New name (in this documentation) |
-|---|---|
-| Diff Analyst | Change Intelligence |
-| History Agent | Incident Memory |
-| Coverage Agent | Verification Readiness |
-| Timing Agent | Release Context |
-| Verdict Agent | Deterministic Verdict & Policy Layer |
-| Orchestrator | Change Assurance Fabric Controller |
-
-You do not need to rename every file in the codebase to benefit from this — the mapping above is enough to read the code with the new mental model. See `08_Code_Integration_Map.md` for exactly which files, if any, are worth renaming.
-
-## Project Structure
-
-```
-SafeLane/
-├── agents/
-│   ├── orchestrator/       # Fabric Controller — receives PR events, runs everything
-│   ├── diff_analyst/       # Change Intelligence
-│   ├── history_agent/      # Incident Memory
-│   ├── coverage_agent/     # Verification Readiness
-│   ├── timing_agent/       # Release Context
-│   ├── verdict_agent/      # Scoring + risk brief + rollback playbook
-│   └── shared/              # The shared data shapes every module agrees on
-├── platform/                # The setup wizard — connects GitHub + Azure, installs SafeLane into a repo
-│   ├── server/               # Backend for the setup wizard
-│   └── frontend/             # The setup wizard's web page
-├── mcp_servers/
-│   └── azure_mcp_server/     # Talks to Azure AI Search for Incident Memory
-├── foundry/
-│   └── deployment_config/    # Optional cloud tracing/safety features + cloud deployment scripts
-├── function_deploy/          # Optional background job that keeps Incident Memory's data fresh
-├── tests/                    # Automated tests — unit/ (fast, no internet) and integration/ (fuller checks)
-├── vscode_extension/         # Optional IDE sidebar — not required for the core product
-├── SafeLane Docs/             # You are here — all the planning documents
-├── requirements.txt          # Python packages to install
-└── .env.example              # Template for your configuration/secrets file
-```
 
 ## How to Install the Project
 
