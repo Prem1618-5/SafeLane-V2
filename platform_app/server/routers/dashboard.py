@@ -1,17 +1,28 @@
 import json
 import logging
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from typing import Annotated
 from platform_app.server.routers.auth import get_current_user
 from platform_app.server.services.db import (
     list_registrations, get_registration_by_id, get_analysis_records,
     get_analysis_by_pr, get_pr_records,
 )
+from platform_app.server.services import sync_service
 
 logger = logging.getLogger('safelane.platform')
 
 router = APIRouter()
 
+@router.post("/repos/{reg_id}/sync")
+async def sync_repo(reg_id: int, background_tasks: BackgroundTasks, current_user: Annotated[dict, Depends(get_current_user)]):
+    """Manually trigger a sync for a connected repository."""
+    user_id = current_user["github_id"]
+    reg = await get_registration_by_id(reg_id)
+    if not reg or reg.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    
+    background_tasks.add_task(sync_service.sync_repository, reg_id)
+    return {"status": "sync_triggered", "reg_id": reg_id}
 
 @router.get("/repos")
 async def dashboard_repos(current_user: Annotated[dict, Depends(get_current_user)]):
@@ -121,16 +132,40 @@ async def dashboard_pr_detail(
     evidence = json.loads(analysis.evidence_json) if analysis.evidence_json else []
     security_findings = json.loads(analysis.security_findings_json) if analysis.security_findings_json else []
 
+    # Normalize evidence field names for frontend (backend uses module/risk_score_modifier/recommended_action)
+    normalized_evidence = []
+    for ev in evidence:
+        normalized_evidence.append({
+            "module_name": ev.get("label") or ev.get("module_name") or ev.get("module", "Unknown"),
+            "status": ev.get("status", "pass"),
+            "risk_modifier": ev.get("risk_modifier") or ev.get("risk_score_modifier", 0),
+            "findings": ev.get("findings", []),
+            "recommendation": ev.get("recommendation") or ev.get("recommended_action", ""),
+        })
+
+    # Normalize security findings for frontend (backend uses rule_id/evidence/remediation)
+    normalized_security = []
+    for sf in security_findings:
+        normalized_security.append({
+            "title": sf.get("title") or sf.get("rule_id", "Security Finding"),
+            "description": sf.get("description") or sf.get("evidence", ""),
+            "severity": sf.get("severity", "warning"),
+            "file": sf.get("file"),
+            "remediation": sf.get("remediation", ""),
+        })
+
+    decision = analysis.decision or ""
+
     return {
         "id": analysis.id,
         "pr_number": analysis.pr_number,
         "head_sha": analysis.head_sha,
         "confidence_score": analysis.confidence_score,
-        "decision": analysis.decision,
+        "decision": decision.upper() if decision else "",
         "risk_brief": analysis.risk_brief,
         "rollback_playbook": analysis.rollback_playbook,
-        "evidence_results": evidence,
-        "security_findings": security_findings,
+        "evidence_results": normalized_evidence,
+        "security_findings": normalized_security,
         "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
     }
 

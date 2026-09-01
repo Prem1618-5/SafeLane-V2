@@ -5,7 +5,7 @@ from safelane.contracts import (
     AnalysisRequest, RepoContext, EvidenceResult, VerdictReport, PRPayload,
     MODULE_LABELS, MODULE_WEIGHTS, SecurityFinding
 )
-from safelane.fabric.inputs import clean_untrusted_text, normalize_pr_payload
+
 from safelane.fabric.security_preflight import run_preflight
 from safelane.fabric.verdict import build_verdict
 

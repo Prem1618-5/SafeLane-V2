@@ -43,9 +43,7 @@ def decrypt_token(encrypted: str) -> str:
     return _get_fernet().decrypt(encrypted.encode()).decode()
 
 
-# Backward-compatible aliases
-encrypt_pat = encrypt_token
-decrypt_pat = decrypt_token
+
 
 
 # ── JWT Session Tokens ──

@@ -11,6 +11,7 @@ export default function AuthCallback() {
   useEffect(() => {
     const token = searchParams.get('token');
     if (token) {
+      localStorage.setItem('safelane_token', token);
       setToken(token);
       navigate('/repos', { replace: true });
     } else {

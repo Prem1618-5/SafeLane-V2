@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel
 from typing import Annotated
 from platform_app.server.routers.auth import get_current_user
@@ -61,8 +61,10 @@ async def create_new_registration(req: RegistrationCreate, current_user: Annotat
     return {"id": reg.id, "status": "created"}
 
 
+from platform_app.server.services import sync_service
+
 @router.post("/{reg_id}/enable")
-async def enable_registration(reg_id: int, current_user: Annotated[dict, Depends(get_current_user)]):
+async def enable_registration(reg_id: int, background_tasks: BackgroundTasks, current_user: Annotated[dict, Depends(get_current_user)]):
     user_id = current_user["github_id"]
     async with async_session() as session:
         from sqlalchemy import select
@@ -74,6 +76,10 @@ async def enable_registration(reg_id: int, current_user: Annotated[dict, Depends
             raise HTTPException(status_code=404, detail="Registration not found")
         reg.is_active = True
         await session.commit()
+        
+        # Trigger background sync of PRs on connect
+        background_tasks.add_task(sync_service.sync_repository, reg_id)
+        
         return {"status": "enabled"}
 
 

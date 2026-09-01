@@ -57,5 +57,14 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to disable repo');
     return res.json();
+  },
+  
+  syncRepo: async (id) => {
+    const res = await fetch(`/api/dashboard/repos/${id}/sync`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to sync repo');
+    return res.json();
   }
 };

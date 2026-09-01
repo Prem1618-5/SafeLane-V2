@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException, Header
-from safelane.contracts import PRPayload, RepoContext, VerdictReport
+from safelane.contracts import PRPayload, RepoContext
 from safelane.fabric.controller import orchestrate
 from safelane.fabric.publisher import publish_verdict
 

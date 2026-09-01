@@ -1,9 +1,9 @@
-import React from 'react';
+﻿import React from 'react';
+import { motion } from 'framer-motion';
 
 export default function ScoreGauge({ score }) {
   const normalizedScore = Math.min(100, Math.max(0, score || 0));
   
-  // Calculate SVG circle properties
   const size = 120;
   const strokeWidth = 10;
   const center = size / 2;
@@ -28,23 +28,31 @@ export default function ScoreGauge({ score }) {
           stroke="currentColor"
           fill="transparent"
         />
-        <circle
+        <motion.circle
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset }}
+          transition={{ type: "spring", duration: 1.5, bounce: 0.1 }}
           cx={center}
           cy={center}
           r={radius}
           className={colorClass}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           stroke="currentColor"
           fill="transparent"
-          style={{ transition: 'stroke-dashoffset 0.5s ease' }}
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center">
-        <span className="text-3xl font-bold text-slate-800">{normalizedScore}</span>
-        <span className="text-xs text-slate-500 font-medium">SCORE</span>
+        <motion.span 
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2, type: "spring", bounce: 0.4 }}
+          className="text-3xl font-bold text-slate-800"
+        >
+          {normalizedScore}
+        </motion.span>
+        <span className="text-xs text-slate-500 font-medium tracking-wide">SCORE</span>
       </div>
     </div>
   );

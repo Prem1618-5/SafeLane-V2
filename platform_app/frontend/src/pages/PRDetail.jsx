@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api';
-import { ChevronRight, RefreshCw, AlertTriangle, ShieldCheck, FileWarning, ArrowLeft } from 'lucide-react';
+import { ChevronRight, RefreshCw, AlertTriangle, ShieldCheck, FileWarning, ArrowLeft, FileCode, ChevronDown, ChevronUp } from 'lucide-react';
 import ScoreGauge from '../components/ScoreGauge';
 import SafetyBadge from '../components/SafetyBadge';
 import EvidenceCard from '../components/EvidenceCard';
 import SecurityAlert from '../components/SecurityAlert';
 import RollbackPlaybook from '../components/RollbackPlaybook';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PRDetail() {
   const { id, pr } = useParams();
@@ -14,6 +15,7 @@ export default function PRDetail() {
   const [repoData, setRepoData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showChangedFiles, setShowChangedFiles] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -38,7 +40,12 @@ export default function PRDetail() {
   if (!data) return <div>Not found</div>;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-20">
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="max-w-6xl mx-auto space-y-6 pb-20"
+    >
       {/* Breadcrumbs */}
       <nav className="flex items-center text-sm text-slate-500">
         <Link to="/repos" className="hover:text-blue-600 transition-colors">Repositories</Link>
@@ -47,6 +54,29 @@ export default function PRDetail() {
         <ChevronRight className="w-4 h-4 mx-1" />
         <span className="text-slate-800 font-medium">PR #{pr}</span>
       </nav>
+
+      {/* Summary Banner */}
+      <div className={`rounded-xl shadow-sm border p-6 md:p-8 flex flex-col md:flex-row justify-between items-center gap-6 ${data.decision === 'GREENLIGHT' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+        <div className="flex-1">
+          <h2 className={`text-2xl md:text-3xl font-bold leading-tight ${data.decision === 'GREENLIGHT' ? 'text-emerald-900' : 'text-red-900'}`}>
+            {data.risk_brief}
+          </h2>
+        </div>
+        <div className="shrink-0 flex items-center gap-6 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+          <div className="flex flex-col items-center">
+            <div className="text-xs text-slate-500 font-medium mb-2">CONFIDENCE</div>
+            <ScoreGauge score={data.confidence_score} />
+          </div>
+          <div className="w-px h-16 bg-slate-200"></div>
+          <div className="flex flex-col items-center min-w-[120px]">
+             <div className="text-xs text-slate-500 font-medium mb-2">VERDICT</div>
+             <div className={`text-2xl font-black flex items-center gap-2 ${data.decision === 'GREENLIGHT' ? 'text-emerald-600' : 'text-red-600'}`}>
+               {data.decision === 'GREENLIGHT' ? <ShieldCheck className="w-8 h-8" /> : <FileWarning className="w-8 h-8" />}
+               <span className="uppercase">{data.decision}</span>
+             </div>
+          </div>
+        </div>
+      </div>
 
       {/* Header section */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -98,6 +128,7 @@ export default function PRDetail() {
           {data.evidence_results?.map((module, idx) => (
             <EvidenceCard 
               key={idx}
+              idx={idx}
               moduleName={module.module_name}
               status={module.status}
               riskModifier={module.risk_modifier}
@@ -120,6 +151,57 @@ export default function PRDetail() {
           <RollbackPlaybook playbook={data.rollback_playbook} />
         </section>
       )}
-    </div>
+
+      {/* Changed Files */}
+      {data.changed_files && data.changed_files.length > 0 && (
+        <section className="space-y-4">
+          <button 
+            onClick={() => setShowChangedFiles(!showChangedFiles)}
+            className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors active:scale-[0.97]"
+          >
+            <div className="flex items-center gap-2">
+              <FileCode className="w-5 h-5 text-blue-500" />
+              <h2 className="text-lg font-bold text-slate-800">Changed Files ({data.changed_files.length})</h2>
+            </div>
+            {showChangedFiles ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+          </button>
+          
+          <AnimatePresence>
+            {showChangedFiles && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="bg-white border border-slate-200 rounded-xl p-2 space-y-1">
+                  {data.changed_files.map((file, idx) => (
+                    <motion.div 
+                      key={idx}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.03, duration: 0.2 }}
+                      className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg text-sm text-slate-600"
+                    >
+                      <FileCode className="w-4 h-4 text-slate-400" />
+                      <span className="font-mono">{file}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </section>
+      )}
+
+      {/* Analysis Metadata Footer */}
+      <footer className="pt-8 mt-8 border-t border-slate-200 flex flex-col items-center justify-center text-sm text-slate-400 space-y-1">
+        <p>Analysis ran at {new Date(data.analyzed_at || data.created_at).toLocaleString()}</p>
+        {data.head_sha && (
+          <p className="font-mono text-xs">Commit: {data.head_sha}</p>
+        )}
+      </footer>
+    </motion.div>
   );
 }
