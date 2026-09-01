@@ -18,26 +18,92 @@
 <br/>
 
 ```
-       ┌────────────────────────────────────────────────────────────────────────┐
-       │   GitHub PR Event  ──►  Deterministic Security Preflight (No LLM)      │
-       │                                  │                                     │
-       │          ┌───────────────────────┴───────────────────────┐             │
-       │          ▼                       ▼                       ▼             │
-       │  [Change Intelligence]   [Incident Memory]   [Verification Readiness]  │
-       │   Diff AST & Deletions   Historical Breaches     Test Suite Check      │
-       │          └───────────────────────┬───────────────────────┘             │
-       │                                  ▼                                     │
-       │                        [Release Context]                               │
-       │                     Friday / Holiday Hazards                           │
-       │                                  │                                     │
-       │                                  ▼                                     │
-       │               Canonical Verdict Engine (Score 0-100)                   │
-       │                                  │                                     │
-       │               ┌──────────────────┴──────────────────┐                  │
-       │               ▼                                     ▼                  │
-       │     🟢 GREENLIGHT (≥70)                     🔴 BLOCKED (<70)           │
-       │    Instant PR Approval               Git Rollback Playbook + Copilot   │
-       └────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 TARGET PRODUCTION ARCHITECTURE                                   │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+       ┌───────────────────────────────┐               ┌────────────────────────────────┐
+       │   GitHub Webhooks & Events    │               │     Developer / UI Client      │
+       │ (PR open/sync, Workflow runs) │               │   (React / Tailwind Dashboard) │
+       └──────────────┬────────────────┘               └───────────────┬────────────────┘
+                      │ HMAC SHA-256 Verified                          │ JWT Bearer (HttpOnly)
+                      ▼                                                ▼
+       ┌────────────────────────────────────────────────────────────────────────────────┐
+       │                       UNIFIED FASTAPI APPLICATION GATEWAY                      │
+       │  ┌───────────────────────┬──────────────────────────┬────────────────────────┐ │
+       │  │  /api/v1/auth         │  /api/v1/github          │  /api/v1/registrations │ │
+       │  │  (OAuth / App Auth)   │  (Sync & Webhooks)       │  (Repo Management)     │ │
+       │  ├───────────────────────┼──────────────────────────┼────────────────────────┤ │
+       │  │  /api/v1/dashboard    │  /api/v1/workspace       │  /api/v1/analytics     │ │
+       │  │  (Metrics & Score)    │  (PR Findings & Diffs)   │  (Trends & Reports)    │ │
+       │  ├───────────────────────┴──────────────────────────┴────────────────────────┤ │
+       │  │  /webhook/github (Direct GitHub Webhook Ingestion, 202 Accepted Response) │ │
+       │  └───────────────────────────────────────────────────────────────────────────┘ │
+       └──────────────────────────────┬─────────────────────────────────────────────────┘
+                                      │ Ingest Event & Trigger Background Job
+                                      ▼
+       ┌────────────────────────────────────────────────────────────────────────────────┐
+       │                        ASYNC ORCHESTRATION PIPELINE                            │
+       │                                                                                │
+       │  ┌──────────────────────────────────────────────────────────────────────────┐  │
+       │  │ 1. Context Builder & Ingestion Validator (inputs.py)                     │  │
+       │  │    - Fetch PR diff, commit history, changed files from GitHub API        │  │
+       │  │    - Clean untrusted text (NFKC, null strip, size caps: 200k diff/1k path)│  │
+       │  │    - Load DB Registration Context (credentials, tenant settings)         │  │
+       │  └─────────────────────────────────────┬────────────────────────────────────┘  │
+       │                                        │                                       │
+       │                                        ▼                                       │
+       │  ┌──────────────────────────────────────────────────────────────────────────┐  │
+       │  │ 2. Deterministic Security Preflight Scanner (security_preflight.py)      │  │
+       │  │    - Secrets (API Keys, PEMs, AWS)   - Dynamic Code Exec (eval, exec)    │  │
+       │  │    - CI/CD Hardening (write-all, unpinned actions) - Prompt Injection    │  │
+       │  └─────────────────────────────────────┬────────────────────────────────────┘  │
+       │                                        │                                       │
+       │                                        ▼                                       │
+       │  ┌──────────────────────────────────────────────────────────────────────────┐  │
+       │  │ 3. Parallel Evidence Gathering (Bounded Concurrency & Timeouts)          │  │
+       │  │    ┌──────────────────┐  ┌──────────────────┐  ┌───────────────────────┐  │  │
+       │  │    │ Change Intel.    │  │ Incident Memory  │  │ Verification Readiness│  │  │
+       │  │    │ (Diff heuristics │  │ (Qdrant Semantic │  │ (Test coverage &      │  │  │
+       │  │    │  + LLM summary)  │  │  Vector Search)  │  │  deleted tests check) │  │  │
+       │  │    └────────┬─────────┘  └────────┬─────────┘  └───────────┬───────────┘  │  │
+       │  │             │                     │                        │              │  │
+       │  │             └─────────────────────┼────────────────────────┘              │  │
+       │  │                                   ▼                                       │  │
+       │  │                          ┌──────────────────┐                             │  │
+       │  │                          │ Release Context  │                             │  │
+       │  │                          │ (Holiday/Weekend │                             │  │
+       │  │                          │  Calendar logic) │                             │  │
+       │  │                          └────────┬─────────┘                             │  │
+       │  └───────────────────────────────────┼───────────────────────────────────────┘  │
+       │                                      │                                         │
+       │                                      ▼                                         │
+       │  ┌──────────────────────────────────────────────────────────────────────────┐  │
+       │  │ 4. Control & Evaluation Layer (Bounded Iterations, Max 2 Retries)        │  │
+       │  │    - Pydantic v2 Schema validation & Evidence Grounding Check            │  │
+       │  │    - Token / Time budget verification (fail to INSUFFICIENT_ANALYSIS)    │  │
+       │  └───────────────────────────────────┼──────────────────────────────────────┘  │
+       │                                      │                                         │
+       │                                      ▼                                         │
+       │  ┌──────────────────────────────────────────────────────────────────────────┐  │
+       │  │ 5. Canonical Deterministic Verdict & Policy Engine (verdict.py)          │  │
+       │  │    - Weighted base scoring: CI (30%) + IM (25%) + VR (25%) + RC (20%)    │  │
+       │  │    - Authoritative Security Penalties & Hard Blocker Rules               │  │
+       │  │    - Decision States: GREENLIGHT | WARNING | BLOCK | INSUFFICIENT_ANALYSIS│  │
+       │  │    - Dynamic Rollback Playbook generator (for BLOCKED state)             │  │
+       │  └───────────────────────────────────┬───────────────────────────────────────┘  │
+       └──────────────────────────────────────┼─────────────────────────────────────────┘
+                                              │
+                      ┌───────────────────────┴───────────────────────┐
+                      ▼                                               ▼
+       ┌──────────────────────────────┐                ┌────────────────────────────────┐
+       │     DURABLE PERSISTENCE      │                │       EXTERNAL PUBLISHING      │
+       │  - PostgreSQL 16 (AsyncPG)   │                │  - Fixed-Template PR Comment   │
+       │    (Analyses, Findings, PRs, │                │  - Commit Check Status API     │
+       │     Verdicts, Notifications) │                │  - Copilot Test Generation     │
+       │  - Qdrant Vector Store       │                │    Nudge (@copilot comment)    │
+       │    (Incident Memory Embeds)  │                │  - OpenTelemetry Trace Export  │
+       └──────────────────────────────┘                └────────────────────────────────┘
 ```
 
 </div>
