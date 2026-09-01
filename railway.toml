@@ -1,0 +1,12 @@
+# Railway deployment configuration
+# https://docs.railway.app/reference/railway-toml
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile.safelane"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

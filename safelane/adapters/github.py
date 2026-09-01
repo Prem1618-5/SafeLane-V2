@@ -23,8 +23,8 @@ async def get_repo_context(repo: str) -> Optional[RepoContext]:
 
     # Try database lookup first
     try:
-        from server.services.db import get_registration
-        from server.services.auth_service import decrypt_token
+        from platform_app.server.services.db import get_registration
+        from platform_app.server.services.auth_service import decrypt_token
 
         registration = await get_registration(owner, repo_name)
         if registration and registration.is_active:
@@ -66,7 +66,7 @@ async def _run_analysis(payload: PRPayload, repo_context: RepoContext):
 
         # Persist analysis record to DB
         try:
-            from server.services.db import save_analysis_record
+            from platform_app.server.services.db import save_analysis_record
             await save_analysis_record(
                 registration_id=int(repo_context.registration_id) if repo_context.registration_id and repo_context.registration_id.isdigit() else None,
                 pr_number=payload.pr_number,

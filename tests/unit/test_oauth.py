@@ -7,7 +7,7 @@ from unittest.mock import patch, AsyncMock, MagicMock
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
 os.environ.setdefault("ENCRYPTION_KEY", "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3ODkwYWJj")  # valid Fernet key
 
-from server.services.auth_service import encrypt_token, decrypt_token, create_jwt, verify_jwt, reset_singletons
+from platform_app.server.services.auth_service import encrypt_token, decrypt_token, create_jwt, verify_jwt, reset_singletons
 from cryptography.fernet import Fernet
 
 
@@ -105,7 +105,7 @@ async def test_exchange_code_mocked():
     mock_response.status_code = 200
     mock_response.json.return_value = {"access_token": "gho_test_token_123", "token_type": "bearer"}
 
-    with patch("server.services.github_service.httpx.AsyncClient") as MockClient:
+    with patch("platform_app.server.services.github_service.httpx.AsyncClient") as MockClient:
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -115,7 +115,7 @@ async def test_exchange_code_mocked():
         os.environ["GITHUB_CLIENT_ID"] = "test_client_id"
         os.environ["GITHUB_CLIENT_SECRET"] = "test_client_secret"
 
-        from server.services.github_service import exchange_code_for_token
+        from platform_app.server.services.github_service import exchange_code_for_token
         token = await exchange_code_for_token("test_code_123")
         assert token == "gho_test_token_123"
 
@@ -127,7 +127,7 @@ async def test_exchange_code_error():
     mock_response.status_code = 200
     mock_response.json.return_value = {"error": "bad_verification_code", "error_description": "The code has expired"}
 
-    with patch("server.services.github_service.httpx.AsyncClient") as MockClient:
+    with patch("platform_app.server.services.github_service.httpx.AsyncClient") as MockClient:
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -137,6 +137,6 @@ async def test_exchange_code_error():
         os.environ["GITHUB_CLIENT_ID"] = "test_client_id"
         os.environ["GITHUB_CLIENT_SECRET"] = "test_client_secret"
 
-        from server.services.github_service import exchange_code_for_token
+        from platform_app.server.services.github_service import exchange_code_for_token
         with pytest.raises(ValueError, match="The code has expired"):
             await exchange_code_for_token("expired_code")

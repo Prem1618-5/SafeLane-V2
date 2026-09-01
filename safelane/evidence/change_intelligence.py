@@ -22,8 +22,8 @@ def _reword_findings_with_llm(findings: list[str]) -> list[str]:
         # Simple client creation (assumes other env vars like AZURE_OPENAI_API_KEY might be set)
         client = AzureOpenAI(
             azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_version="2023-05-15",
-            api_key=os.environ.get("AZURE_OPENAI_API_KEY", "dummy"),
+            api_version="2024-02-01",
+            api_key=os.environ.get("AZURE_OPENAI_API_KEY", ""),
         )
         # Using a dummy deployment name or reading from env; fallback to a default
         deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4")

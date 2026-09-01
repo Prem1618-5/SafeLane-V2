@@ -12,10 +12,17 @@ asyncpg>=0.29.0
 PyJWT>=2.8.0
 cryptography>=41.0.0
 
-# ── AI & Incident Memory (Optional / Cloud Integrations) ──
+# ── AI: Azure OpenAI (Foundry) ──
 openai>=1.0.0
-azure-identity>=1.25.2
-azure-search-documents==11.4.0
+
+# ── Incident Memory: Qdrant Vector Store ──
+qdrant-client>=1.8.0
+
+# ── Observability: OpenTelemetry + Prometheus ──
+prometheus-client>=0.20.0
+opentelemetry-sdk>=1.24.0
+opentelemetry-instrumentation-fastapi>=0.45b0
+opentelemetry-exporter-otlp-proto-http>=1.24.0
 
 # ── Testing & Development ──
 pytest>=8.0.0

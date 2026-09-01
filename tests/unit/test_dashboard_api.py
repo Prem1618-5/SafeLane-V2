@@ -10,9 +10,9 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-dashboard-tests")
 os.environ.setdefault("ENCRYPTION_KEY", "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3ODkwYWJj")
 
-from server.services.auth_service import create_jwt, reset_singletons
-from server.routers.dashboard import router as dashboard_router
-from server.routers.auth import router as auth_router
+from platform_app.server.services.auth_service import create_jwt, reset_singletons
+from platform_app.server.routers.dashboard import router as dashboard_router
+from platform_app.server.routers.auth import router as auth_router
 
 
 @pytest.fixture(autouse=True)
@@ -54,7 +54,7 @@ def test_dashboard_repos_unauthenticated(client):
 @pytest.mark.unit
 def test_dashboard_repos_authenticated(client, auth_header):
     """Authenticated requests should return a list (possibly empty)."""
-    with patch("server.routers.dashboard.list_registrations", new_callable=AsyncMock) as mock_list:
+    with patch("platform_app.server.routers.dashboard.list_registrations", new_callable=AsyncMock) as mock_list:
         mock_list.return_value = []
         resp = client.get("/api/dashboard/repos", headers=auth_header)
         assert resp.status_code == 200
@@ -73,8 +73,8 @@ def test_dashboard_repos_with_data(client, auth_header):
     mock_reg.sync_error = None
     mock_reg.created_at = None
 
-    with patch("server.routers.dashboard.list_registrations", new_callable=AsyncMock) as mock_list, \
-         patch("server.routers.dashboard.get_analysis_records", new_callable=AsyncMock) as mock_analysis:
+    with patch("platform_app.server.routers.dashboard.list_registrations", new_callable=AsyncMock) as mock_list, \
+         patch("platform_app.server.routers.dashboard.get_analysis_records", new_callable=AsyncMock) as mock_analysis:
         mock_list.return_value = [mock_reg]
         mock_analysis.return_value = []
 
@@ -89,7 +89,7 @@ def test_dashboard_repos_with_data(client, auth_header):
 @pytest.mark.unit
 def test_dashboard_repo_detail_not_found(client, auth_header):
     """Request for non-existent repo should return 404."""
-    with patch("server.routers.dashboard.get_registration_by_id", new_callable=AsyncMock) as mock_get:
+    with patch("platform_app.server.routers.dashboard.get_registration_by_id", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = None
         resp = client.get("/api/dashboard/repos/999", headers=auth_header)
         assert resp.status_code == 404
@@ -102,7 +102,7 @@ def test_dashboard_repo_detail_wrong_user(client, auth_header):
     mock_reg.id = 1
     mock_reg.user_id = 11111  # Different from auth user (99999)
 
-    with patch("server.routers.dashboard.get_registration_by_id", new_callable=AsyncMock) as mock_get:
+    with patch("platform_app.server.routers.dashboard.get_registration_by_id", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = mock_reg
         resp = client.get("/api/dashboard/repos/1", headers=auth_header)
         assert resp.status_code == 404

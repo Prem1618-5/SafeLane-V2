@@ -31,7 +31,7 @@ async def test_no_repo_context(base_request):
     result = await incident_memory.run(base_request)
     assert result.status == "pass"
     assert result.risk_score_modifier == 0
-    assert result.findings[0] == "No deployment connection — no relevant incident history available."
+    assert result.findings[0] == "No incident memory store configured — no relevant incident history available."
 
 @pytest.mark.unit
 async def test_no_azure_config(base_request):
@@ -43,7 +43,7 @@ async def test_no_azure_config(base_request):
     )
     result = await incident_memory.run(base_request, context)
     assert result.status == "pass"
-    assert result.findings[0] == "No deployment connection — no relevant incident history available."
+    assert result.findings[0] == "No incident memory store configured — no relevant incident history available."
 
 @pytest.mark.unit
 async def test_with_mock_incidents_critical(base_request, repo_context_mock):
@@ -88,6 +88,7 @@ async def test_unrelated_filename(repo_context_mock):
 
 @pytest.mark.unit
 async def test_azure_error(base_request, monkeypatch):
+    """When Azure Search raises an error, incident memory should return a warning."""
     context = RepoContext(
         registration_id="reg1",
         owner="testowner",
@@ -97,12 +98,16 @@ async def test_azure_error(base_request, monkeypatch):
         azure_search_key="key",
         azure_tenant_id="tenant"
     )
-    
-    async def mock_run(*args, **kwargs):
+
+    # Patch asyncio.to_thread in the incident_memory module's namespace
+    import asyncio
+    original_to_thread = asyncio.to_thread
+
+    async def mock_to_thread(func, *args, **kwargs):
         raise RuntimeError("Network error")
-        
-    monkeypatch.setattr("asyncio.to_thread", mock_run)
-    
+
+    monkeypatch.setattr("safelane.evidence.incident_memory.asyncio.to_thread", mock_to_thread)
+
     result = await incident_memory.run(base_request, context)
     assert result.status == "warning"
     assert "Incident search temporarily unavailable" in result.findings[0]

@@ -62,8 +62,8 @@ Thumbs.db
 
 # ── Frontend Node Modules & Builds ──
 node_modules/
-platform/frontend/node_modules/
-platform/frontend/dist/
+platform_app/frontend/node_modules/
+platform_app/frontend/dist/
 
 # ── Testing & Coverage ──
 .pytest_cache/
