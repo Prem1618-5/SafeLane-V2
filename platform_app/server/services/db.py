@@ -10,6 +10,15 @@ logger = logging.getLogger('safelane.platform')
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///./safelane.db")
 
+# Auto-normalize: Railway injects postgresql:// but SQLAlchemy needs postgresql+asyncpg://
+# Without this, SQLAlchemy defaults to psycopg2 which is not installed.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+    logger.info("Auto-converted DATABASE_URL: postgres:// → postgresql+asyncpg://")
+elif DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+    logger.info("Auto-converted DATABASE_URL: postgresql:// → postgresql+asyncpg://")
+
 engine_kwargs = {}
 if DATABASE_URL.startswith("postgresql+asyncpg"):
     if os.environ.get("DB_SSL_INSECURE") == "true":
