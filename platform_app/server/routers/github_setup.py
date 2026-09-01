@@ -27,4 +27,42 @@ async def list_repos(current_user: Annotated[dict, Depends(get_current_user)]):
         repos = await list_user_repos(token)
         return repos
     except ValueError as e:
+        msg = str(e).lower()
+        if "re-authenticate" in msg or "expired" in msg or "invalid" in msg:
+            raise HTTPException(status_code=401, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
+
+from pydantic import BaseModel
+from platform_app.server.services.db import SessionLocal
+from platform_app.server.services.auth_service import encrypt_token
+from platform_app.server.services.github_service import validate_token
+
+class TokenRequest(BaseModel):
+    token: str
+
+@router.post("/token")
+async def update_token(req: TokenRequest, current_user: Annotated[dict, Depends(get_current_user)]):
+    """Save or update a GitHub Personal Access Token."""
+    try:
+        await validate_token(req.token)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid GitHub token")
+        
+    db = SessionLocal()
+    try:
+        user = await get_user_by_github_id(current_user["github_id"])
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        encrypted = encrypt_token(req.token)
+        # We need to update it in the db. Wait, get_user_by_github_id doesn't use the db session we just created.
+        # Let's import the actual model and update it.
+        from platform_app.server.services.db import User
+        db_user = db.query(User).filter(User.github_id == current_user["github_id"]).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        db_user.encrypted_token = encrypted
+        db.commit()
+    finally:
+        db.close()
+    return {"status": "ok"}

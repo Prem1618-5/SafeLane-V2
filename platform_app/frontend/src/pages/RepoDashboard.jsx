@@ -143,56 +143,64 @@ export default function RepoDashboard() {
       >
         <div className="p-5 border-b border-slate-200 flex items-center gap-2 bg-slate-50/50">
           <GitPullRequest className="w-5 h-5 text-slate-500" />
-          <h2 className="text-lg font-semibold text-slate-800">Recent Pull Requests</h2>
+          <h2 className="text-lg font-semibold text-slate-800">Recent Analyses (PRs & Commits)</h2>
+        </div>
+        <div className="p-2 border-b border-slate-100">
         </div>
         
         {prs.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 italic">No pull requests analyzed yet.</div>
+          <div className="p-8 text-center text-slate-500">No analyses found yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                  <th className="p-4 font-medium border-b border-slate-200">PR</th>
-                  <th className="p-4 font-medium border-b border-slate-200">Title</th>
+                <tr className="text-xs uppercase tracking-wider text-slate-400 bg-slate-50/50">
+                  <th className="p-4 font-medium border-b border-slate-200">Type</th>
+                  <th className="p-4 font-medium border-b border-slate-200">ID</th>
+                  <th className="p-4 font-medium border-b border-slate-200">Title / SHA</th>
                   <th className="p-4 font-medium border-b border-slate-200">Score</th>
                   <th className="p-4 font-medium border-b border-slate-200">Decision</th>
                   <th className="p-4 font-medium border-b border-slate-200">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {prs.map((pr, idx) => {
-                  const prAnalysis = data.analyses?.find(a => a.pr_number === pr.pr_number);
+                {data.analyses?.map((analysis, idx) => {
+                  const pr = analysis.pr_number > 0 ? data.pull_requests?.find(p => p.pr_number === analysis.pr_number) : null;
                   return (
                     <motion.tr 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.05 * idx }}
-                      key={pr.pr_number} 
+                      key={analysis.id} 
                       className="hover:bg-slate-50 transition-colors group"
                     >
+                      <td className="p-4 font-medium">
+                        {analysis.pr_number === 0 ? (
+                          <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">PUSH</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">PR</span>
+                        )}
+                      </td>
                       <td className="p-4 font-medium text-blue-600">
-                        <Link to={`/repos/${id}/prs/${pr.pr_number}`} className="hover:underline">
-                          #{pr.pr_number}
+                        <Link to={`/repos/${id}/prs/${analysis.pr_number}`} className="hover:underline">
+                          {analysis.pr_number === 0 ? analysis.head_sha?.substring(0, 7) : `#${analysis.pr_number}`}
                         </Link>
                       </td>
                       <td className="p-4 text-slate-800 font-medium">
-                        <Link to={`/repos/${id}/prs/${pr.pr_number}`} className="block">
-                          {pr.title || `Update ${pr.head_sha?.substring(0, 7)}`}
+                        <Link to={`/repos/${id}/prs/${analysis.pr_number}`} className="block">
+                          {pr?.title || `Update ${analysis.head_sha?.substring(0, 7)}`}
                         </Link>
                       </td>
                       <td className="p-4">
-                        {prAnalysis ? (
-                          <span className={`font-mono font-bold ${prAnalysis.confidence_score >= 80 ? 'text-emerald-600' : prAnalysis.confidence_score >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                            {prAnalysis.confidence_score}
-                          </span>
-                        ) : '--'}
+                        <span className={`font-mono font-bold ${analysis.confidence_score >= 80 ? 'text-emerald-600' : analysis.confidence_score >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                          {analysis.confidence_score}
+                        </span>
                       </td>
                       <td className="p-4">
-                        {prAnalysis ? <SafetyBadge status={prAnalysis.decision} /> : <span className="text-slate-400 italic">Pending</span>}
+                        <SafetyBadge status={analysis.decision} />
                       </td>
                       <td className="p-4 text-slate-500 whitespace-nowrap">
-                        {new Date(pr.updated_at || pr.created_at).toLocaleDateString()}
+                        {new Date(analysis.created_at).toLocaleDateString()}
                       </td>
                     </motion.tr>
                   );

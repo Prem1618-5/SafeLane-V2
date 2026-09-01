@@ -71,7 +71,9 @@ async def list_user_repos(token: str) -> list[dict]:
                     "Accept": "application/vnd.github.v3+json",
                 },
             )
-            if response.status_code != 200:
+            if response.status_code in (401, 403):
+                raise ValueError("GitHub token expired or revoked. Please re-authenticate.")
+            elif response.status_code != 200:
                 raise ValueError(f"Failed to fetch repositories: {response.status_code}")
 
             batch = response.json()
@@ -93,3 +95,73 @@ async def list_user_repos(token: str) -> list[dict]:
             ])
             page += 1
     return repos
+
+async def get_compare_diff(token: str, owner: str, repo: str, base: str, head: str) -> tuple[str, list[str]]:
+    """Fetch compare diff and changed files."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{GITHUB_API_BASE}/repos/{owner}/{repo}/compare/{base}...{head}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.v3+json",
+            }
+        )
+        if response.status_code != 200:
+            return "", []
+        
+        data = response.json()
+        changed_files = [f.get("filename", "") for f in data.get("files", [])]
+        
+        diff_resp = await client.get(
+            f"{GITHUB_API_BASE}/repos/{owner}/{repo}/compare/{base}...{head}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.v3.diff",
+            }
+        )
+        diff = diff_resp.text if diff_resp.status_code == 200 else ""
+        return diff, changed_files
+
+async def get_commit_diff(token: str, owner: str, repo: str, sha: str) -> tuple[str, list[str]]:
+    """Fetch a single commit's diff and changed files."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{GITHUB_API_BASE}/repos/{owner}/{repo}/commits/{sha}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.v3+json",
+            }
+        )
+        if response.status_code != 200:
+            return "", []
+            
+        data = response.json()
+        changed_files = [f.get("filename", "") for f in data.get("files", [])]
+        
+        diff_resp = await client.get(
+            f"{GITHUB_API_BASE}/repos/{owner}/{repo}/commits/{sha}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.v3.diff",
+            }
+        )
+        diff = diff_resp.text if diff_resp.status_code == 200 else ""
+        return diff, changed_files
+
+async def post_commit_status(token: str, owner: str, repo: str, sha: str, state: str, description: str, target_url: str, context: str = "SafeLane Change Assurance") -> bool:
+    """Post a commit status check to GitHub."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{GITHUB_API_BASE}/repos/{owner}/{repo}/statuses/{sha}",
+            json={
+                "state": state,
+                "description": description[:140],
+                "target_url": target_url,
+                "context": context
+            },
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.v3+json",
+            }
+        )
+        return response.status_code == 201

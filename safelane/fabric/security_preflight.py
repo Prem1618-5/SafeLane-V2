@@ -136,3 +136,11 @@ def run_preflight(diff: str, changed_files: list[str], pr_title: str = "", pr_bo
 
     return findings
 
+
+
+def apply_security_policy(score: int, findings: list[SecurityFinding]) -> tuple[int, bool]:
+    penalty = min(MAX_SECURITY_PENALTY, sum(SECURITY_PENALTIES.get(f.severity, 0) for f in findings))
+    final_score = max(0, score - penalty)
+    has_critical = any(f.severity == "critical" for f in findings)
+    return final_score, has_critical
+

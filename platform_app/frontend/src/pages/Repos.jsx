@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { useAuth } from '../auth';
 import { Shield, Github, Plus, RefreshCw, AlertCircle, Database } from 'lucide-react';
 import SafetyBadge from '../components/SafetyBadge';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,6 +13,8 @@ export default function Repos() {
   const [error, setError] = useState(null);
   const [enabling, setEnabling] = useState(null);
 
+  const { login } = useAuth();
+  
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -22,7 +25,11 @@ export default function Repos() {
       setGithubRepos(ghRes);
       setConnectedRepos(dashRes);
     } catch (err) {
-      setError(err.message);
+      if (err.isAuthError) {
+        setError("Your GitHub session has expired. Please re-authenticate.");
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -52,7 +59,19 @@ export default function Repos() {
   };
 
   if (loading) return <div className="flex justify-center p-10 mt-20"><RefreshCw className="w-8 h-8 animate-spin text-blue-500" /></div>;
-  if (error) return <div className="text-red-500 p-4 bg-red-50 rounded-lg flex gap-2 border border-red-200"><AlertCircle /> {error}</div>;
+  if (error) {
+    if (error.includes("session has expired")) {
+      return (
+        <div className="text-red-500 p-4 bg-red-50 rounded-lg flex flex-col items-start gap-4 border border-red-200">
+          <div className="flex gap-2"><AlertCircle /> {error}</div>
+          <button onClick={login} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            Re-authenticate with GitHub
+          </button>
+        </div>
+      );
+    }
+    return <div className="text-red-500 p-4 bg-red-50 rounded-lg flex gap-2 border border-red-200"><AlertCircle /> {error}</div>;
+  }
 
   const connectedFullNames = new Set(connectedRepos.map(r => r.full_name));
   const availableRepos = githubRepos.filter(r => !connectedFullNames.has(r.full_name));

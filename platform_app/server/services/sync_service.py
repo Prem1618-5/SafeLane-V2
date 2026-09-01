@@ -107,6 +107,34 @@ async def bootstrap_repository(registration_id: int):
                 payload={"prs_synced": prs_synced},
             )
 
+            # Analyze latest commits on default branch
+            from platform_app.server.services.github_service import get_commit_diff
+            commit_resp = await client.get(
+                f"{GITHUB_API_BASE}/repos/{reg.owner}/{reg.repo}/commits",
+                params={"per_page": 5},
+            )
+            if commit_resp.status_code == 200:
+                commits = commit_resp.json()
+                for commit in commits:
+                    sha = commit.get("sha")
+                    diff_text, changed_files = await get_commit_diff(token, reg.owner, reg.repo, sha)
+                    if diff_text and changed_files:
+                        payload = PRPayload(
+                            pr_number=0,
+                            repo=f"{reg.owner}/{reg.repo}",
+                            changed_files=changed_files,
+                            diff=diff_text,
+                            timestamp=commit.get("commit", {}).get("author", {}).get("date"),
+                            head_sha=sha,
+                        )
+                        report = await orchestrate(payload, repo_context)
+                        await save_analysis_record(
+                            registration_id=registration_id,
+                            pr_number=0,
+                            head_sha=sha,
+                            report=report,
+                        )
+
         await update_registration_sync(registration_id, error=None)
         logger.info(f"Successfully bootstrapped {reg.owner}/{reg.repo}")
 

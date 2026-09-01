@@ -36,7 +36,11 @@ async def get_my_registrations(current_user: Annotated[dict, Depends(get_current
 
 
 @router.post("/")
-async def create_new_registration(req: RegistrationCreate, current_user: Annotated[dict, Depends(get_current_user)]):
+async def create_new_registration(
+    req: RegistrationCreate, 
+    background_tasks: BackgroundTasks, 
+    current_user: Annotated[dict, Depends(get_current_user)]
+):
     user_id = current_user["github_id"]
 
     # Get user's encrypted token from DB
@@ -58,6 +62,8 @@ async def create_new_registration(req: RegistrationCreate, current_user: Annotat
         azure_tenant_id=req.azure_tenant_id,
         azure_workspace_id=req.azure_workspace_id,
     )
+    from platform_app.server.services import sync_service
+    background_tasks.add_task(sync_service.sync_repository, reg.id)
     return {"id": reg.id, "status": "created"}
 
 

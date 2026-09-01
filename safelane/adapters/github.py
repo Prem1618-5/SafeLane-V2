@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException, Header
 from safelane.contracts import PRPayload, RepoContext
 from safelane.fabric.controller import orchestrate
-from safelane.fabric.publisher import publish_verdict
+from safelane.fabric.publisher import publish_verdict, publish_commit_verdict
 
 logger = logging.getLogger('safelane.server')
 
@@ -79,6 +79,26 @@ async def _run_analysis(payload: PRPayload, repo_context: RepoContext):
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
 
+async def _run_push_analysis(payload: PRPayload, repo_context: RepoContext):
+    try:
+        report = await orchestrate(payload, repo_context)
+        
+        target_url = "" # Can link to safelane dashboard
+        await publish_commit_verdict(report, payload.repo, payload.head_sha, repo_context.gh_token, target_url)
+
+        try:
+            from platform_app.server.services.db import save_analysis_record
+            await save_analysis_record(
+                registration_id=int(repo_context.registration_id) if repo_context.registration_id and repo_context.registration_id.isdigit() else None,
+                pr_number=0, # Push event
+                head_sha=payload.head_sha,
+                report=report,
+            )
+        except Exception as db_err:
+            logger.warning(f"Failed to save analysis record for push: {db_err}")
+
+    except Exception as e:
+        logger.error(f"Push Analysis failed: {e}")
 
 @router.post("/webhook/pr")
 async def webhook_pr(
@@ -103,16 +123,15 @@ async def webhook_pr(
     data = await request.json()
 
     event = request.headers.get("x-github-event")
-    if event != "pull_request":
-        return {"status": "ignored", "reason": "not a pull_request event"}
-
+    
+    if event not in ["pull_request", "push"]:
+        return {"status": "ignored", "reason": f"not a supported event: {event}"}
+        
     action = data.get("action")
-    if action not in ["opened", "synchronize", "reopened"]:
+    if event == "pull_request" and action not in ["opened", "synchronize", "reopened"]:
         return {"status": "ignored", "reason": f"action {action} ignored"}
-
-    pr_data = data.get("pull_request", {})
+    
     repo_data = data.get("repository", {})
-
     repo_name = repo_data.get("full_name")
     if not repo_name:
         raise HTTPException(status_code=400, detail="Missing repository full_name")
@@ -120,6 +139,40 @@ async def webhook_pr(
     repo_context = await get_repo_context(repo_name)
     if not repo_context:
         raise HTTPException(status_code=404, detail="Repo context not found")
+        
+    if event == "push":
+        ref = data.get("ref", "")
+        if ref not in ["refs/heads/main", "refs/heads/master"] and ref != f"refs/heads/{repo_data.get('default_branch', 'main')}":
+            return {"status": "ignored", "reason": "not default branch push"}
+            
+        after = data.get("after")
+        if not after or after == "0000000000000000000000000000000000000000":
+            return {"status": "ignored", "reason": "deleted branch"}
+            
+        before = data.get("before")
+        
+        diff_text = ""
+        changed_files = []
+        try:
+            from platform_app.server.services.github_service import get_compare_diff
+            diff_text, changed_files = await get_compare_diff(repo_context.gh_token, repo_context.owner, repo_context.repo, before, after)
+        except Exception as e:
+            logger.error(f"Failed to fetch push diff: {e}")
+            
+        payload = PRPayload(
+            pr_number=0,
+            repo=repo_name,
+            changed_files=changed_files,
+            diff=diff_text,
+            timestamp=data.get("head_commit", {}).get("timestamp", "1970-01-01T00:00:00Z"),
+            head_sha=after,
+            skip_autofix=False,
+        )
+
+        background_tasks.add_task(_run_push_analysis, payload, repo_context)
+        return {"status": "accepted"}
+
+    pr_data = data.get("pull_request", {})
 
     # Fetch real PR diff and changed files from GitHub API
     diff_text = ""

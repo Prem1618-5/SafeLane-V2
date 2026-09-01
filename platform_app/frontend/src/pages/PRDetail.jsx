@@ -85,7 +85,9 @@ export default function PRDetail() {
             <Link to={`/repos/${id}`} className="text-slate-400 hover:text-slate-600 transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-2xl font-bold text-slate-800">Pull Request #{data.pr_number}</h1>
+            <h1 className="text-2xl font-bold text-slate-800">
+              {data.pr_number === 0 ? `Commit ${data.head_sha?.substring(0, 7)}` : `Pull Request #${data.pr_number}`}
+            </h1>
             <SafetyBadge status={data.decision} />
           </div>
           <p className="text-slate-500">

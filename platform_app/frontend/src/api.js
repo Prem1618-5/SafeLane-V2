@@ -9,7 +9,11 @@ const getHeaders = () => {
 export const api = {
   getUserRepos: async () => {
     const res = await fetch('/api/github/user-repos', { headers: getHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch repos');
+    if (!res.ok) {
+      const err = new Error('Failed to fetch repos');
+      if (res.status === 401) err.isAuthError = true;
+      throw err;
+    }
     return res.json();
   },
   

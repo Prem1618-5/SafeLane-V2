@@ -17,11 +17,11 @@ def table_cell(value: str, limit: int = 160) -> str:
 def render_comment(report: VerdictReport) -> str:
     """Build a fixed-template PR comment from a VerdictReport."""
     
-    decision_display = "GREENLIGHT ✅" if report.decision == "greenlight" else "BLOCKED 🚫"
+    decision_display = "GREENLIGHT" if report.decision == "greenlight" else "BLOCKED"
     
     lines = [
-        "## 🛡️ SafeLane Change Assurance Report",
-        f"**Score:** {report.confidence_score}/100 — {decision_display}",
+        "## SafeLane Change Assurance Report",
+        f"**Score:** {report.confidence_score}/100 - {decision_display}",
         "",
         "| Evidence Module | Status | Risk | Key Finding |",
         "|---|---|---:|---|"
@@ -36,7 +36,7 @@ def render_comment(report: VerdictReport) -> str:
         
     lines.extend([
         "",
-        "<details><summary>📋 Risk Brief</summary>",
+        "<details><summary>Risk Brief</summary>",
         report.risk_brief,
         "</details>"
     ])
@@ -44,7 +44,7 @@ def render_comment(report: VerdictReport) -> str:
     if "BLOCKED" in report.decision.upper() and report.rollback_playbook:
         lines.extend([
             "",
-            "<details><summary>🔄 Rollback Playbook</summary>",
+            "<details><summary>Rollback Playbook</summary>",
             report.rollback_playbook,
             "</details>"
         ])
@@ -111,5 +111,40 @@ async def publish_verdict(report: VerdictReport, repo: str, pr_number: int, toke
             nudge = render_copilot_nudge(missing_tests, repo, pr_number)
             if nudge:
                 await post_pr_comment(repo, pr_number, nudge, token)
+                
+    return success
+
+async def publish_commit_verdict(report: VerdictReport, repo: str, sha: str, token: str, target_url: str = "") -> bool:
+    """Publish a commit status check and potentially a rollback playbook if blocked."""
+    if not token:
+        logger.warning("No GitHub token provided, skipping commit publication.")
+        return False
+
+    state = "success" if report.decision == "greenlight" else "failure"
+    description = f"Score: {report.confidence_score}/100 - {report.decision.upper()}"
+    
+    from platform_app.server.services.github_service import post_commit_status
+    
+    if "/" in repo:
+        owner, repo_name = repo.split("/", 1)
+        success = await post_commit_status(token, owner, repo_name, sha, state, description, target_url)
+    else:
+        success = False
+
+    if report.decision == "blocked" and report.rollback_playbook:
+        url = f"https://api.github.com/repos/{repo}/commits/{sha}/comments"
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28"
+        }
+        
+        body = f"## SafeLane Blocked Commit\\n\\n{report.rollback_playbook}"
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.post(url, headers=headers, json={"body": body})
+            except Exception as e:
+                logger.error(f"Failed to post commit comment: {e}")
                 
     return success
