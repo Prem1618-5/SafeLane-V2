@@ -1,9 +1,22 @@
-# Environments
+# ── Environments & Secrets ──
 .env
 .env.*
 !.env.example
+*.pem
+*.key
 
-# Python
+# ── Agent Skills & Brain / Prompts ──
+.agents/
+.gemini/
+
+# ── Audit, Reports & Scratch Artifacts ──
+ponytail_audit_report.md
+original_audit_report.md
+*.log
+*.tmp
+scratch/
+
+# ── Python & Bytecode ──
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,7 +32,6 @@ lib/
 lib64/
 parts/
 sdist/
-var/
 wheels/
 share/python-wheels/
 *.egg-info/
@@ -27,25 +39,33 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
+# ── Virtual Environments ──
 venv/
 .venv/
 env/
 .env/
 
-# Databases
+# ── Databases & Persistence ──
 *.db
+*.sqlite
 *.sqlite3
 safelane.db
 
-# IDEs and Editors
+# ── IDEs & System Files ──
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.DS_Store
+Thumbs.db
 
-# Testing
+# ── Frontend Node Modules & Builds ──
+node_modules/
+platform/frontend/node_modules/
+platform/frontend/dist/
+
+# ── Testing & Coverage ──
 .pytest_cache/
 .coverage
 htmlcov/

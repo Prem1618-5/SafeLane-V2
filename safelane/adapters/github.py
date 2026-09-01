@@ -4,51 +4,95 @@ import hashlib
 import logging
 from typing import Optional
 
-from fastapi import FastAPI, Request, BackgroundTasks, HTTPException, Header
+from fastapi import APIRouter, Request, BackgroundTasks, HTTPException, Header
 from safelane.contracts import PRPayload, RepoContext, VerdictReport
 from safelane.fabric.controller import orchestrate
 from safelane.fabric.publisher import publish_verdict
 
 logger = logging.getLogger('safelane.server')
 
-app = FastAPI(title="SafeLane Change Assurance Fabric")
+router = APIRouter()
 
-def get_repo_context(repo: str) -> Optional[RepoContext]:
-    # Mock lookup for MVP
+
+async def get_repo_context(repo: str) -> Optional[RepoContext]:
+    """Resolve repository credentials from the database, falling back to env var for local dev."""
+    if '/' not in repo:
+        return None
+
+    owner, repo_name = repo.split('/', 1)
+
+    # Try database lookup first
+    try:
+        from server.services.db import get_registration
+        from server.services.auth_service import decrypt_token
+
+        registration = await get_registration(owner, repo_name)
+        if registration and registration.is_active:
+            token = decrypt_token(registration.encrypted_token)
+            return RepoContext(
+                registration_id=str(registration.id),
+                owner=owner,
+                repo=repo_name,
+                gh_token=token,
+                azure_search_endpoint=registration.azure_search_endpoint,
+                azure_search_key=registration.azure_search_key,
+                azure_tenant_id=registration.azure_tenant_id,
+                azure_workspace_id=registration.azure_workspace_id,
+            )
+    except Exception as e:
+        logger.warning(f"DB lookup failed for {repo}, falling back to env: {e}")
+
+    # Fallback to env var for local development / testing
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
         return None
     return RepoContext(
-        registration_id="mock-reg-id",
-        owner=repo.split('/')[0] if '/' in repo else "unknown",
-        repo=repo.split('/')[1] if '/' in repo else repo,
-        gh_token=token
+        registration_id="env-fallback",
+        owner=owner,
+        repo=repo_name,
+        gh_token=token,
     )
 
-@app.get("/health")
+
+@router.get("/health")
 async def health():
     return {"status": "ok", "service": "safelane"}
+
 
 async def _run_analysis(payload: PRPayload, repo_context: RepoContext):
     try:
         report = await orchestrate(payload, repo_context)
         await publish_verdict(report, payload.repo, payload.pr_number, repo_context.gh_token)
+
+        # Persist analysis record to DB
+        try:
+            from server.services.db import save_analysis_record
+            await save_analysis_record(
+                registration_id=int(repo_context.registration_id) if repo_context.registration_id and repo_context.registration_id.isdigit() else None,
+                pr_number=payload.pr_number,
+                head_sha=payload.head_sha,
+                report=report,
+            )
+        except Exception as db_err:
+            logger.warning(f"Failed to save analysis record: {db_err}")
+
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
 
-@app.post("/webhook/pr")
+
+@router.post("/webhook/pr")
 async def webhook_pr(
     request: Request,
     background_tasks: BackgroundTasks,
-    x_hub_signature_256: Optional[str] = Header(None)
+    x_hub_signature_256: Optional[str] = Header(None),
 ):
     body = await request.body()
     secret = os.environ.get("GITHUB_WEBHOOK_SECRET")
-    
+
     if secret:
         if not x_hub_signature_256:
             raise HTTPException(status_code=401, detail="Missing signature")
-            
+
         expected_mac = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
         expected_sig = f"sha256={expected_mac}"
         if not hmac.compare_digest(x_hub_signature_256, expected_sig):
@@ -57,23 +101,23 @@ async def webhook_pr(
         logger.warning("GITHUB_WEBHOOK_SECRET is not set, bypassing verification. Set it for production use.")
 
     data = await request.json()
-    
+
     event = request.headers.get("x-github-event")
     if event != "pull_request":
         return {"status": "ignored", "reason": "not a pull_request event"}
-        
+
     action = data.get("action")
     if action not in ["opened", "synchronize", "reopened"]:
         return {"status": "ignored", "reason": f"action {action} ignored"}
-        
+
     pr_data = data.get("pull_request", {})
     repo_data = data.get("repository", {})
-    
+
     repo_name = repo_data.get("full_name")
     if not repo_name:
         raise HTTPException(status_code=400, detail="Missing repository full_name")
 
-    repo_context = get_repo_context(repo_name)
+    repo_context = await get_repo_context(repo_name)
     if not repo_context:
         raise HTTPException(status_code=404, detail="Repo context not found")
 
@@ -82,18 +126,19 @@ async def webhook_pr(
     changed_files = []
     try:
         import httpx
+
         async with httpx.AsyncClient() as client:
             headers = {"Authorization": f"Bearer {repo_context.gh_token}", "User-Agent": "SafeLane"}
             diff_resp = await client.get(
                 f"https://api.github.com/repos/{repo_name}/pulls/{pr_data.get('number', 0)}",
-                headers={**headers, "Accept": "application/vnd.github.v3.diff"}
+                headers={**headers, "Accept": "application/vnd.github.v3.diff"},
             )
             if diff_resp.status_code == 200:
                 diff_text = diff_resp.text
-                
+
             files_resp = await client.get(
                 f"https://api.github.com/repos/{repo_name}/pulls/{pr_data.get('number', 0)}/files",
-                headers={**headers, "Accept": "application/vnd.github.v3+json"}
+                headers={**headers, "Accept": "application/vnd.github.v3+json"},
             )
             if files_resp.status_code == 200:
                 changed_files = [f["filename"] for f in files_resp.json()]
@@ -107,15 +152,16 @@ async def webhook_pr(
         diff=diff_text,
         timestamp=pr_data.get("updated_at", "1970-01-01T00:00:00Z"),
         head_sha=pr_data.get("head", {}).get("sha", ""),
-        skip_autofix=False
+        skip_autofix=False,
     )
-    
+
     background_tasks.add_task(_run_analysis, payload, repo_context)
     return {"status": "accepted"}
 
-@app.post("/analyze")
+
+@router.post("/analyze")
 async def analyze(payload: PRPayload):
-    # Synchronous endpoint
-    repo_context = get_repo_context(payload.repo)
+    """Synchronous analysis endpoint for testing."""
+    repo_context = await get_repo_context(payload.repo)
     report = await orchestrate(payload, repo_context)
     return report
