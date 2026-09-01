@@ -12,6 +12,7 @@
 # ── Audit, Reports & Scratch Artifacts ──
 ponytail_audit_report.md
 original_audit_report.md
+Docs/
 *.log
 *.tmp
 scratch/
