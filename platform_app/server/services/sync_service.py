@@ -1,3 +1,4 @@
+import json
 import logging
 import httpx
 from platform_app.server.services.db import (
@@ -32,6 +33,13 @@ async def bootstrap_repository(registration_id: int):
         "User-Agent": "SafeLane",
     }
     
+    custom_holidays = None
+    if reg.custom_holiday_dates:
+        try:
+            custom_holidays = json.loads(reg.custom_holiday_dates) if isinstance(reg.custom_holiday_dates, str) else reg.custom_holiday_dates
+        except (json.JSONDecodeError, TypeError):
+            custom_holidays = None
+
     repo_context = RepoContext(
         registration_id=str(reg.id),
         owner=reg.owner,
@@ -41,6 +49,10 @@ async def bootstrap_repository(registration_id: int):
         azure_search_key=reg.azure_search_key,
         azure_tenant_id=reg.azure_tenant_id,
         azure_workspace_id=reg.azure_workspace_id,
+        rollback_strategy=reg.rollback_strategy or "branch",
+        custom_holiday_dates=custom_holidays,
+        deploy_window_start_utc=reg.deploy_window_start_utc,
+        deploy_window_end_utc=reg.deploy_window_end_utc,
     )
 
     try:

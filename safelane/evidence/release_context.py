@@ -1,3 +1,4 @@
+import os
 import logging
 from datetime import datetime, timezone, date, timedelta
 
@@ -55,6 +56,9 @@ def get_us_holidays(year: int) -> set[date]:
 async def run(request: AnalysisRequest, repo_context: RepoContext | None = None) -> EvidenceResult:
     """
     Evaluates risk based on deployment time and day (weekends, off-hours, holidays).
+    Supports configuration via RepoContext or environment variables:
+      - SAFELANE_DEPLOY_WINDOW_START_UTC / SAFELANE_DEPLOY_WINDOW_END_UTC
+      - SAFELANE_CUSTOM_HOLIDAYS (comma-separated YYYY-MM-DD)
     """
     dt = request.received_at or datetime.now(timezone.utc)
     if dt.tzinfo is None:
@@ -74,9 +78,27 @@ async def run(request: AnalysisRequest, repo_context: RepoContext | None = None)
         
     # Time of day (UTC)
     hour = dt.hour
-    if repo_context and repo_context.deploy_window_start_utc is not None and repo_context.deploy_window_end_utc is not None:
-        start = repo_context.deploy_window_start_utc
-        end = repo_context.deploy_window_end_utc
+    
+    # Resolve deploy window: RepoContext takes precedence over env vars
+    start = repo_context.deploy_window_start_utc if (repo_context and repo_context.deploy_window_start_utc is not None) else None
+    if start is None:
+        env_start = os.environ.get("SAFELANE_DEPLOY_WINDOW_START_UTC")
+        if env_start is not None:
+            try:
+                start = int(env_start.strip())
+            except (ValueError, TypeError):
+                start = None
+
+    end = repo_context.deploy_window_end_utc if (repo_context and repo_context.deploy_window_end_utc is not None) else None
+    if end is None:
+        env_end = os.environ.get("SAFELANE_DEPLOY_WINDOW_END_UTC")
+        if env_end is not None:
+            try:
+                end = int(env_end.strip())
+            except (ValueError, TypeError):
+                end = None
+
+    if start is not None and end is not None:
         if start <= end:
             is_off_hours = not (start <= hour < end)
         else:
@@ -93,10 +115,20 @@ async def run(request: AnalysisRequest, repo_context: RepoContext | None = None)
             modifier += 15
             findings.append("Deploy scheduled during off-hours (20-6 UTC)")
         
-    # Holiday proximity
-    holidays = set()
+    # Holiday proximity: RepoContext takes precedence over env vars
+    custom_holidays_list = None
     if repo_context and repo_context.custom_holiday_dates:
-        for ds in repo_context.custom_holiday_dates:
+        custom_holidays_list = repo_context.custom_holiday_dates
+    else:
+        env_holidays = os.environ.get("SAFELANE_CUSTOM_HOLIDAYS")
+        if env_holidays:
+            custom_holidays_list = [d.strip() for d in env_holidays.split(",") if d.strip()]
+
+    holidays = set()
+    is_custom = False
+    if custom_holidays_list:
+        is_custom = True
+        for ds in custom_holidays_list:
             try:
                 holidays.add(datetime.strptime(ds, "%Y-%m-%d").date())
             except ValueError:
@@ -108,7 +140,7 @@ async def run(request: AnalysisRequest, repo_context: RepoContext | None = None)
     
     if d_date in holidays:
         modifier += 20
-        desc = "custom holiday" if repo_context and repo_context.custom_holiday_dates else "US federal holiday"
+        desc = "custom holiday" if is_custom else "US federal holiday"
         findings.append(f"Deploying on a {desc} increases rollback risk")
     elif d_date + timedelta(days=1) in holidays:
         modifier += 10

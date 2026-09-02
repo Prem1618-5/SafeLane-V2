@@ -35,7 +35,7 @@ def _setup_otel(app: FastAPI) -> None:
 
         resource = Resource.create({
             "service.name": os.environ.get("OTEL_SERVICE_NAME", "safelane"),
-            "service.version": "2.0.0",
+            "service.version": "2.3.0",
             "deployment.environment": os.environ.get("RAILWAY_ENVIRONMENT", "production"),
         })
         provider = TracerProvider(resource=resource)

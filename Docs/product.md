@@ -40,7 +40,7 @@ Security penalties deduct from the base score.
 - **Score < 70 OR >= 1 Critical Finding => `BLOCKED`**
 
 ### 4. Zero Secret Exposure & Frictionless 1-Click Identity
-OAuth is the default and only login method available to users today. Manual PAT-based authentication exists for internal testing and is planned as a fully validated advanced option in a future release — see `roadmap.md`. SafeLane features a 1-click GitHub OAuth 2.0 PKCE flow. S256 code challenge is generated on authorize, verifier stored server-side keyed to state, and discarded after use. Client-side session JWTs contain **only** `github_username`, `github_id`, and `exp` — zero raw tokens ever touch the browser.
+OAuth is the primary user login method and manual PAT access is internal-only. SafeLane features a 1-click GitHub OAuth 2.0 PKCE flow. S256 code challenge is generated on authorize, verifier stored server-side keyed to state, and discarded after use. Client-side session JWTs contain **only** `github_username`, `github_id`, and `exp` — zero raw tokens ever touch the browser.
 
 ### 5. Actionable Remediation (Never Just Complain)
 When SafeLane blocks a PR, it doesn't leave the developer stranded:
@@ -76,10 +76,10 @@ SafeLane v2 features a clean, responsive single-page application built with Reac
 │  📋 Automated Rollback Playbook                                                        │
 │  ┌───────────────────────────────────────────────────────────────────────────────────┐ │
 │  │ $ git fetch origin                                                                │ │
-│  │ $ git checkout -b revert-risky-changes-a1b2c3d4e5f6                               │ │
-│  │ $ git revert a1b2c3d4e5f6 --no-commit                                             │ │
-│  │ $ git commit -m "Revert risky changes from a1b2c3d4e5f6"                          │ │
-│  │ $ git push origin revert-risky-changes-a1b2c3d4e5f6                               │ │
+│  │ $ git checkout -b revert-risky-changes-a1b2c3d                                    │ │
+│  │ $ git revert --no-commit a1b2c3d..HEAD                                            │ │
+│  │ $ git commit -m 'Revert risky changes identified by SafeLane'                     │ │
+│  │ $ git push origin revert-risky-changes-a1b2c3d                                    │ │
 │  └───────────────────────────────────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```

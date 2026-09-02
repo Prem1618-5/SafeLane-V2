@@ -73,6 +73,17 @@ async def health():
 
 async def _run_analysis(payload: PRPayload, repo_context: RepoContext):
     try:
+        reg_id = int(repo_context.registration_id) if repo_context.registration_id and repo_context.registration_id.isdigit() else None
+        if reg_id and payload.head_sha:
+            try:
+                from platform_app.server.services.db import get_analysis_by_sha
+                existing = await get_analysis_by_sha(reg_id, payload.pr_number, payload.head_sha)
+                if existing:
+                    logger.debug(f"Skipping analysis for PR #{payload.pr_number} sha={payload.head_sha[:7]} — already analyzed")
+                    return
+            except Exception as e:
+                logger.warning(f"Could not check existing analysis: {e}")
+
         report = await orchestrate(payload, repo_context)
         await publish_verdict(report, payload.repo, payload.pr_number, repo_context.gh_token)
 
@@ -80,7 +91,7 @@ async def _run_analysis(payload: PRPayload, repo_context: RepoContext):
         try:
             from platform_app.server.services.db import save_analysis_record
             await save_analysis_record(
-                registration_id=int(repo_context.registration_id) if repo_context.registration_id and repo_context.registration_id.isdigit() else None,
+                registration_id=reg_id,
                 pr_number=payload.pr_number,
                 head_sha=payload.head_sha,
                 report=report,
@@ -93,6 +104,17 @@ async def _run_analysis(payload: PRPayload, repo_context: RepoContext):
 
 async def _run_push_analysis(payload: PRPayload, repo_context: RepoContext):
     try:
+        reg_id = int(repo_context.registration_id) if repo_context.registration_id and repo_context.registration_id.isdigit() else None
+        if reg_id and payload.head_sha:
+            try:
+                from platform_app.server.services.db import get_analysis_by_sha
+                existing = await get_analysis_by_sha(reg_id, 0, payload.head_sha)
+                if existing:
+                    logger.debug(f"Skipping push analysis for sha={payload.head_sha[:7]} — already analyzed")
+                    return
+            except Exception as e:
+                logger.warning(f"Could not check existing push analysis: {e}")
+
         report = await orchestrate(payload, repo_context)
         
         target_url = "" # Can link to safelane dashboard
@@ -101,7 +123,7 @@ async def _run_push_analysis(payload: PRPayload, repo_context: RepoContext):
         try:
             from platform_app.server.services.db import save_analysis_record
             await save_analysis_record(
-                registration_id=int(repo_context.registration_id) if repo_context.registration_id and repo_context.registration_id.isdigit() else None,
+                registration_id=reg_id,
                 pr_number=0, # Push event
                 head_sha=payload.head_sha,
                 report=report,

@@ -22,7 +22,7 @@ SECRET_PATTERNS = [
 GENERIC_SECRET_PATTERNS = [
     (r"(?i)(password|passwd|pwd)\s*[:=]\s*[\"']([^\"']{4,})[\"']", "Hardcoded password literal", "https://cwe.mitre.org/data/definitions/259.html"),
     (r"(?i)(secret|api[_-]?key|access[_-]?key|credential)\s*[:=]\s*[\"']([^\"']{8,})[\"']", "Hardcoded secret/API key literal", "https://cwe.mitre.org/data/definitions/798.html"),
-    (r"(?i)(auth[_-]?token|bearer)\s*[:=]\s*[\"']([^\"']{8,})[\"']", "Hardcoded auth token literal", "https://cwe.mitre.org/data/definitions/798.html"),
+    (r"(?i)(auth[_-]?token|access[_-]?token|refresh[_-]?token|token|bearer)\s*[:=]\s*[\"']([^\"']{8,})[\"']", "Hardcoded auth/access/refresh/generic token literal", "https://cwe.mitre.org/data/definitions/798.html"),
 ]
 
 # Values that are unambiguously placeholders — skip these to reduce false positives

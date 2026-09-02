@@ -73,3 +73,36 @@ def test_raw_content_never_in_output():
     )
     comment = render_comment(report)
     assert "raw diff" not in comment
+
+
+@pytest.mark.unit
+def test_render_comment_table_headers_and_points_deducted():
+    report = VerdictReport(
+        confidence_score=82,
+        decision="greenlight",
+        risk_brief="Low risk",
+        rollback_playbook=None,
+        evidence_results=[
+            EvidenceResult(
+                module="change_intelligence",
+                status="warning",
+                risk_score_modifier=20,
+                findings=["2 changed files without coverage"],
+                recommended_action="Review"
+            ),
+            EvidenceResult(
+                module="release_context",
+                status="pass",
+                risk_score_modifier=0,
+                findings=[],
+                recommended_action=""
+            )
+        ],
+        security_findings=[],
+        score_breakdown={"change_intelligence": 6.0, "release_context": 0.0}
+    )
+    comment = render_comment(report)
+    assert "| Evidence Module | Status | Points Deducted | Key Finding |" in comment
+    assert "| Change Intelligence | warning | -6.0 | 2 changed files without coverage |" in comment
+    assert "| Release Context | pass | -0.0 | No issues found |" in comment
+

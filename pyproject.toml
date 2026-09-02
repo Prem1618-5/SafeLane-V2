@@ -1,6 +1,6 @@
 [project]
 name = "safelane"
-version = "2.1.0"
+version = "2.3.0"
 description = "AI-powered pre-deployment risk gate for GitHub pull requests"
 requires-python = ">=3.12"
 

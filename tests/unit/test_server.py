@@ -5,7 +5,7 @@ import hmac
 import hashlib
 import os
 import json
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 from safelane.adapters.github import router, get_repo_context
 from safelane.contracts import RepoContext
 
@@ -101,3 +101,72 @@ def test_missing_repo_registration(mock_env, monkeypatch):
         headers={"x-hub-signature-256": sig, "x-github-event": "pull_request", "Content-Type": "application/json"},
     )
     assert response.status_code == 404
+
+
+@pytest.mark.unit
+async def test_run_analysis_skips_when_sha_already_analyzed():
+    """_run_analysis should not run orchestrate if head_sha was already analyzed."""
+    from safelane.adapters.github import _run_analysis
+    from safelane.contracts import PRPayload, RepoContext
+
+    payload = PRPayload(
+        pr_number=10,
+        repo="owner/repo",
+        changed_files=["file.py"],
+        diff="diff",
+        head_sha="sha_already_done_123",
+    )
+    repo_context = RepoContext(
+        registration_id="42",
+        owner="owner",
+        repo="repo",
+        gh_token="token",
+    )
+
+    mock_existing_record = MagicMock()
+
+    with patch("platform_app.server.services.db.get_analysis_by_sha", new_callable=AsyncMock) as mock_get_sha, \
+         patch("safelane.adapters.github.orchestrate", new_callable=AsyncMock) as mock_orch, \
+         patch("safelane.adapters.github.publish_verdict", new_callable=AsyncMock) as mock_pub:
+        mock_get_sha.return_value = mock_existing_record
+
+        await _run_analysis(payload, repo_context)
+
+        mock_get_sha.assert_called_once_with(42, 10, "sha_already_done_123")
+        mock_orch.assert_not_called()
+        mock_pub.assert_not_called()
+
+
+@pytest.mark.unit
+async def test_run_push_analysis_skips_when_sha_already_analyzed():
+    """_run_push_analysis should not run orchestrate if commit sha was already analyzed."""
+    from safelane.adapters.github import _run_push_analysis
+    from safelane.contracts import PRPayload, RepoContext
+
+    payload = PRPayload(
+        pr_number=0,
+        repo="owner/repo",
+        changed_files=["file.py"],
+        diff="diff",
+        head_sha="sha_commit_done_456",
+    )
+    repo_context = RepoContext(
+        registration_id="42",
+        owner="owner",
+        repo="repo",
+        gh_token="token",
+    )
+
+    mock_existing_record = MagicMock()
+
+    with patch("platform_app.server.services.db.get_analysis_by_sha", new_callable=AsyncMock) as mock_get_sha, \
+         patch("safelane.adapters.github.orchestrate", new_callable=AsyncMock) as mock_orch, \
+         patch("safelane.adapters.github.publish_commit_verdict", new_callable=AsyncMock) as mock_pub:
+        mock_get_sha.return_value = mock_existing_record
+
+        await _run_push_analysis(payload, repo_context)
+
+        mock_get_sha.assert_called_once_with(42, 0, "sha_commit_done_456")
+        mock_orch.assert_not_called()
+        mock_pub.assert_not_called()
+

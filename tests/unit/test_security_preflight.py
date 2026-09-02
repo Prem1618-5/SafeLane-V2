@@ -124,3 +124,41 @@ def test_generic_auth_token_detected():
     critical = [f for f in findings if f.severity == "critical"]
     assert len(critical) >= 1, "Hardcoded auth token should trigger a critical finding"
 
+
+@pytest.mark.unit
+def test_generic_access_refresh_token_and_bearer_detected():
+    """Generic access_token, refresh_token, token, and bearer should be detected."""
+    for var in ["access_token", "refresh_token", "token", "bearer", "access-key", "secret"]:
+        diff = f'{var} = "supersecretvalue123456"\n'
+        findings = run_preflight(diff, ["config.py"])
+        critical = [f for f in findings if f.severity == "critical"]
+        assert len(critical) >= 1, f"Hardcoded {var} should trigger a critical finding"
+        assert critical[0].reference is not None, "Security finding should include reference URL"
+
+
+@pytest.mark.unit
+def test_various_placeholders_excluded():
+    """Verify common dummy / placeholder tokens are not flagged."""
+    placeholders = [
+        "changeme", "your-api-key-here", "your_secret_here", "your-password-here",
+        "your-token-here", "<password>", "<secret>", "<token>", "placeholder", "dummy"
+    ]
+    for ph in placeholders:
+        diff = f'api_key = "{ph}"\npassword = "{ph}"\ntoken = "{ph}"\n'
+        findings = run_preflight(diff, [".env.example"])
+        secret_findings = [f for f in findings if f.rule_id == "secret_exposure"]
+        assert len(secret_findings) == 0, f"Placeholder '{ph}' should not trigger secret detection"
+
+
+@pytest.mark.unit
+def test_password_forces_verdict_blocked():
+    """Verify Password='1234%ABC#' produces critical finding and forces build_verdict to 'blocked'."""
+    from safelane.fabric.verdict import build_verdict
+    diff = 'Password="1234%ABC#"\n'
+    findings = run_preflight(diff, ["secrets.py"])
+    assert any(f.severity == "critical" for f in findings)
+    
+    report = build_verdict([], findings, repo="org/repo", head_sha="1234567890abcdef")
+    assert report.decision == "blocked"
+    assert report.rollback_playbook is not None
+

@@ -89,8 +89,9 @@ async def enable_registration(reg_id: int, background_tasks: BackgroundTasks, cu
         return {"status": "enabled"}
 
 
+@router.post("/{reg_id}/deactivate")
 @router.post("/{reg_id}/disable")
-async def disable_registration(reg_id: int, current_user: Annotated[dict, Depends(get_current_user)]):
+async def deactivate_registration(reg_id: int, current_user: Annotated[dict, Depends(get_current_user)]):
     user_id = current_user["github_id"]
     async with async_session() as session:
         from sqlalchemy import select
@@ -102,6 +103,6 @@ async def disable_registration(reg_id: int, current_user: Annotated[dict, Depend
             raise HTTPException(status_code=404, detail="Registration not found")
         reg.is_active = False
         await session.commit()
-        return {"status": "disabled"}
+        return {"status": "deactivated"}
 
 
