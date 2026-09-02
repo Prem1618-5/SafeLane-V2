@@ -70,6 +70,7 @@ class SecurityFinding(BaseModel):
     file: str | None = None
     evidence: str  # short, specific — never echoes a raw secret value
     remediation: str
+    reference: str | None = None
 
 
 # ── PR payload (normalized input to the Fabric Controller) ───
@@ -127,6 +128,10 @@ class RepoContext(BaseModel):
     azure_workspace_id: str | None = None
     azure_customer_id: str | None = None
     azure_search_index: str | None = None
+    rollback_strategy: Literal["branch", "direct"] = "branch"
+    custom_holiday_dates: list[str] | None = None
+    deploy_window_start_utc: int | None = None
+    deploy_window_end_utc: int | None = None
 
 
 # ── Verdict report (final output of the pipeline) ────────────
@@ -145,6 +150,7 @@ class VerdictReport(BaseModel):
     rollback_playbook: str | None = None
     evidence_results: list[EvidenceResult] = Field(default_factory=list)
     security_findings: list[SecurityFinding] = Field(default_factory=list)
+    score_breakdown: dict[str, float] | None = None
 
     @model_validator(mode="after")
     def enforce_invariants(self) -> "VerdictReport":

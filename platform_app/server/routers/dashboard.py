@@ -8,6 +8,7 @@ from platform_app.server.services.db import (
     get_analysis_by_pr, get_pr_records,
 )
 from platform_app.server.services import sync_service
+from safelane.contracts import MODULE_WEIGHTS
 
 logger = logging.getLogger('safelane.platform')
 
@@ -145,10 +146,13 @@ async def dashboard_pr_detail(
     # Normalize evidence field names for frontend (backend uses module/risk_score_modifier/recommended_action)
     normalized_evidence = []
     for ev in evidence:
+        mod_id = ev.get("module", "Unknown")
+        modifier = ev.get("risk_modifier") or ev.get("risk_score_modifier", 0)
+        points = modifier * MODULE_WEIGHTS.get(mod_id, 0.25)
         normalized_evidence.append({
-            "module_name": ev.get("label") or ev.get("module_name") or ev.get("module", "Unknown"),
+            "module_name": ev.get("label") or ev.get("module_name") or mod_id,
             "status": ev.get("status", "pass"),
-            "risk_modifier": ev.get("risk_modifier") or ev.get("risk_score_modifier", 0),
+            "risk_modifier": points,
             "findings": ev.get("findings", []),
             "recommendation": ev.get("recommendation") or ev.get("recommended_action", ""),
         })
@@ -162,6 +166,7 @@ async def dashboard_pr_detail(
             "severity": sf.get("severity", "warning"),
             "file": sf.get("file"),
             "remediation": sf.get("remediation", ""),
+            "reference": sf.get("reference", ""),
         })
 
     decision = analysis.decision or ""

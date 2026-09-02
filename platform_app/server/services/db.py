@@ -70,6 +70,10 @@ class Registration(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_synced_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     sync_error: Mapped[str] = mapped_column(String, nullable=True)
+    rollback_strategy: Mapped[str] = mapped_column(String, nullable=False, default="branch")
+    custom_holiday_dates: Mapped[str] = mapped_column(Text, nullable=True)
+    deploy_window_start_utc: Mapped[int] = mapped_column(Integer, nullable=True)
+    deploy_window_end_utc: Mapped[int] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

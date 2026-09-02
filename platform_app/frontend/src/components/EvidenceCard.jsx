@@ -90,9 +90,9 @@ export default function EvidenceCard({ moduleName, status, riskModifier, finding
         </div>
       )}
       
-      {riskModifier !== undefined && riskModifier !== null && (
+      {riskModifier > 0 && (
          <div className="absolute right-4 top-[4.5rem] rounded border border-slate-100 bg-white/80 px-2 py-1 font-mono text-xs font-medium tabular-nums text-slate-400 backdrop-blur-sm">
-           Modifier: {riskModifier > 0 ? '+' : ''}{riskModifier}
+           Points: -{Number(riskModifier).toFixed(1).replace(/\.0$/, '')}
          </div>
       )}
     </motion.div>

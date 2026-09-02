@@ -3,13 +3,11 @@ from safelane.contracts import EvidenceResult, SecurityFinding, VerdictReport, M
 
 logger = logging.getLogger('safelane.verdict')
 
-def compute_score(evidence: list[EvidenceResult]) -> int:
+def compute_score(evidence: list[EvidenceResult]) -> tuple[int, dict[str, float]]:
     """Compute base score: 100 - sum(modifier * weight), clamped 0-100."""
-    weighted_sum = sum(
-        r.risk_score_modifier * MODULE_WEIGHTS.get(r.module, 0.25)
-        for r in evidence
-    )
-    return int(max(0, min(100, 100 - weighted_sum)))
+    deductions = {r.module: r.risk_score_modifier * MODULE_WEIGHTS.get(r.module, 0.25) for r in evidence}
+    total = int(max(0, min(100, 100 - sum(deductions.values()))))
+    return total, deductions
 
 def decide(score: int, evidence: list[EvidenceResult], security_findings: list[SecurityFinding]) -> tuple[int, str]:
     """Apply security penalties and determine decision."""
@@ -41,43 +39,57 @@ def build_risk_brief(evidence: list[EvidenceResult], security_findings: list[Sec
     if security_findings:
         lines.append("## Security Preflight Findings")
         for sf in security_findings:
-            lines.append(f"- **{sf.severity.upper()}** [{sf.rule_id}] in {sf.file}: {sf.evidence}")
+            ref = f" ([Reference]({sf.reference}))" if sf.reference else ""
+            lines.append(f"- **{sf.severity.upper()}** [{sf.rule_id}]{ref} in {sf.file}: {sf.evidence}")
             if sf.remediation:
                 lines.append(f"  *Remediation:* {sf.remediation}")
         lines.append("")
         
     return "\n".join(lines).strip()
 
-def build_rollback_playbook(evidence: list[EvidenceResult], repo: str, head_sha: str | None) -> str | None:
+def build_rollback_playbook(evidence: list[EvidenceResult], repo: str, head_sha: str | None, strategy: str = "branch") -> str | None:
     """Build a rollback playbook with concrete git revert steps. Only when blocked."""
     if not head_sha:
         return "Cannot build rollback playbook: HEAD SHA not provided."
         
-    lines = [
-        f"### Rollback Playbook for {repo}",
-        "The current PR introduces critical risks or policy violations.",
-        "To rollback the problematic changes safely, run the following commands:",
-        "```bash",
-        f"git fetch origin",
-        f"git checkout -b revert-risky-changes-{head_sha[:7]}",
-        f"git revert --no-commit {head_sha}..HEAD",
-        "git commit -m 'Revert risky changes identified by SafeLane'",
-        f"git push origin revert-risky-changes-{head_sha[:7]}",
-        "```",
-        "After pushing, please verify that the deployment is stable and create a new PR for these changes."
-    ]
+    if strategy == "direct":
+        lines = [
+            f"### Rollback Playbook for {repo}",
+            "The current PR introduces critical risks or policy violations.",
+            "To rollback the problematic changes safely, run the following commands:",
+            "```bash",
+            f"git checkout main",
+            f"git revert {head_sha} -m 1",
+            "git push origin main",
+            "```",
+            "This will directly revert the merge commit on the main branch."
+        ]
+    else:
+        lines = [
+            f"### Rollback Playbook for {repo}",
+            "The current PR introduces critical risks or policy violations.",
+            "To rollback the problematic changes safely, run the following commands:",
+            "```bash",
+            f"git fetch origin",
+            f"git checkout -b revert-risky-changes-{head_sha[:7]}",
+            f"git revert --no-commit {head_sha}..HEAD",
+            "git commit -m 'Revert risky changes identified by SafeLane'",
+            f"git push origin revert-risky-changes-{head_sha[:7]}",
+            "```",
+            "After pushing, please verify that the deployment is stable and create a new PR for these changes."
+        ]
     return "\n".join(lines)
 
-def build_verdict(evidence: list[EvidenceResult], security_findings: list[SecurityFinding], repo: str, head_sha: str | None = None) -> VerdictReport:
+def build_verdict(evidence: list[EvidenceResult], security_findings: list[SecurityFinding], repo: str, head_sha: str | None = None, rollback_strategy: str = "branch") -> VerdictReport:
     """Full verdict pipeline: score -> decide -> brief -> playbook -> VerdictReport."""
-    base_score = compute_score(evidence)
+    base_score, deductions = compute_score(evidence)
     final_score, decision = decide(base_score, evidence, security_findings)
     
     risk_brief = build_risk_brief(evidence, security_findings)
     
     rollback_playbook = None
     if decision == "blocked":
-        rollback_playbook = build_rollback_playbook(evidence, repo, head_sha)
+        rollback_playbook = build_rollback_playbook(evidence, repo, head_sha, strategy=rollback_strategy)
         
     return VerdictReport(
         confidence_score=final_score,
@@ -85,5 +97,6 @@ def build_verdict(evidence: list[EvidenceResult], security_findings: list[Securi
         risk_brief=risk_brief,
         rollback_playbook=rollback_playbook,
         evidence_results=evidence,
-        security_findings=security_findings
+        security_findings=security_findings,
+        score_breakdown=deductions
     )

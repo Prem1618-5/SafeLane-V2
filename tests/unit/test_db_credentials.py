@@ -27,6 +27,10 @@ async def test_db_hit_active_returns_decrypted_context():
     mock_reg.azure_search_key = "search-key"
     mock_reg.azure_tenant_id = "tenant-id"
     mock_reg.azure_workspace_id = "workspace-id"
+    mock_reg.custom_holiday_dates = None
+    mock_reg.deploy_window_start_utc = None
+    mock_reg.deploy_window_end_utc = None
+    mock_reg.rollback_strategy = "branch"
 
     with patch("platform_app.server.services.db.get_registration", new_callable=AsyncMock, return_value=mock_reg) as mock_get_reg, \
          patch("platform_app.server.services.auth_service.decrypt_token", return_value="decrypted_real_token") as mock_decrypt:
