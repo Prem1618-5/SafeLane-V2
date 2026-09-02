@@ -90,7 +90,6 @@ async def enable_registration(reg_id: int, background_tasks: BackgroundTasks, cu
 
 
 @router.post("/{reg_id}/deactivate")
-@router.post("/{reg_id}/disable")
 async def deactivate_registration(reg_id: int, current_user: Annotated[dict, Depends(get_current_user)]):
     user_id = current_user["github_id"]
     async with async_session() as session:

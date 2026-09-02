@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api } from '../api';
 import { ChevronRight, RefreshCw, GitPullRequest, Activity } from 'lucide-react';
 import ScoreGauge from '../components/ScoreGauge';
-import SafetyBadge from '../components/SafetyBadge';
+import { DecisionBadge } from '../components/SafetyBadge';
 import { motion } from 'framer-motion';
 
 export default function RepoDashboard() {
@@ -76,7 +76,7 @@ export default function RepoDashboard() {
             <>
               <ScoreGauge score={latestAnalysis.confidence_score} />
               <div className="mt-4">
-                <SafetyBadge status={latestAnalysis.decision} />
+                <DecisionBadge decision={latestAnalysis.decision} />
               </div>
             </>
           ) : (
@@ -197,7 +197,7 @@ export default function RepoDashboard() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <SafetyBadge status={analysis.decision} />
+                        <DecisionBadge decision={analysis.decision} />
                       </td>
                       <td className="p-4 text-slate-500 whitespace-nowrap">
                         {new Date(analysis.created_at).toLocaleDateString()}

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { Shield, Github, Plus, RefreshCw, AlertCircle, Database } from 'lucide-react';
-import SafetyBadge from '../components/SafetyBadge';
+import { DecisionBadge } from '../components/SafetyBadge';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Repos() {
@@ -118,7 +118,7 @@ export default function Repos() {
                         </div>
                         <span className="truncate tracking-tight" title={repo.full_name}>{repo.repo}</span>
                       </div>
-                      {repo.latest_decision && <SafetyBadge status={repo.latest_decision} />}
+                      {repo.latest_decision && <DecisionBadge decision={repo.latest_decision} />}
                     </div>
                     
                     <div className="mt-auto pt-5 flex items-end justify-between border-t border-slate-100">

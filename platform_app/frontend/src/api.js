@@ -59,10 +59,10 @@ export const api = {
   },
   
   disableRegistration: async (id) => {
-    const res = await fetchWithCredentials(`/api/registrations/${id}/disable`, {
+    const res = await fetchWithCredentials(`/api/registrations/${id}/deactivate`, {
       method: 'POST',
     });
-    if (!res.ok) throw new Error('Failed to disable repo');
+    if (!res.ok) throw new Error('Failed to deactivate repo');
     return res.json();
   },
   

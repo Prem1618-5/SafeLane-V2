@@ -14,7 +14,7 @@ import {
   FileWarning,
 } from 'lucide-react';
 import ScoreGauge from '../components/ScoreGauge';
-import SafetyBadge from '../components/SafetyBadge';
+import { DecisionBadge } from '../components/SafetyBadge';
 import EvidenceCard from '../components/EvidenceCard';
 import SecurityAlert from '../components/SecurityAlert';
 import RollbackPlaybook from '../components/RollbackPlaybook';
@@ -121,7 +121,7 @@ export default function PRDetail() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{analysisTitle}</h1>
-                  <SafetyBadge status={data.decision} />
+                  <DecisionBadge decision={data.decision} />
                 </div>
                 <p className="mt-1 text-sm text-slate-500">
                   Analysis completed {data.created_at ? new Date(data.created_at).toLocaleString() : 'recently'}
