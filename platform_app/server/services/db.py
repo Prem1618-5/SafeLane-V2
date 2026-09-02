@@ -127,8 +127,13 @@ class ActivityEvent(Base):
 # ── Database initialization ──
 
 async def init_db():
+    """Initialize database: create tables and run migrations."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Run migrations to add missing columns to existing tables
+    from platform_app.server.services.migrations import add_missing_columns
+    await add_missing_columns()
 
 
 # ── User CRUD ──
