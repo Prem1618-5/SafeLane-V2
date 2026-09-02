@@ -25,7 +25,7 @@ async def add_missing_columns():
             )
             """)
         )
-        if not (await result.scalar()):
+        if not result.scalar():
             logger.info("Adding rollback_strategy column to registrations table...")
             await conn.execute(
                 text("""
@@ -44,7 +44,7 @@ async def add_missing_columns():
             )
             """)
         )
-        if not (await result.scalar()):
+        if not result.scalar():
             logger.info("Adding custom_holiday_dates column to registrations table...")
             await conn.execute(
                 text("""
@@ -63,7 +63,7 @@ async def add_missing_columns():
             )
             """)
         )
-        if not (await result.scalar()):
+        if not result.scalar():
             logger.info("Adding deploy_window_start_utc column to registrations table...")
             await conn.execute(
                 text("""
@@ -82,7 +82,7 @@ async def add_missing_columns():
             )
             """)
         )
-        if not (await result.scalar()):
+        if not result.scalar():
             logger.info("Adding deploy_window_end_utc column to registrations table...")
             await conn.execute(
                 text("""
