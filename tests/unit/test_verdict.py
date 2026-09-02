@@ -21,7 +21,7 @@ def test_module_weights_sum_to_one():
 
 @pytest.mark.unit
 def test_all_pass_results(clean_evidence):
-    score = compute_score(clean_evidence)
+    score, _ = compute_score(clean_evidence)
     assert score == 100
     final_score, decision = decide(score, clean_evidence, [])
     assert final_score == 100
@@ -29,7 +29,7 @@ def test_all_pass_results(clean_evidence):
 
 @pytest.mark.unit
 def test_all_critical_results(critical_evidence):
-    score = compute_score(critical_evidence)
+    score, _ = compute_score(critical_evidence)
     assert score < 100
     final_score, decision = decide(score, critical_evidence, [])
     assert decision == "blocked"

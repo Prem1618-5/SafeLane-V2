@@ -8,11 +8,13 @@
 # ── Agent Skills & Brain / Prompts ──
 .agents/
 .gemini/
+Docs/README_UPDATE_SPEC.md
+Docs/SAFELANE_v2.X_PLAN.md
+Docs/SAFELANE_v3_PLAN.md
 
 # ── Audit, Reports & Scratch Artifacts ──
 ponytail_audit_report.md
 original_audit_report.md
-Docs/
 *.log
 *.tmp
 scratch/
@@ -39,6 +41,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
 
 # ── Virtual Environments ──
 venv/

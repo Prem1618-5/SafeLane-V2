@@ -105,17 +105,3 @@ async def disable_registration(reg_id: int, current_user: Annotated[dict, Depend
         return {"status": "disabled"}
 
 
-@router.delete("/{reg_id}")
-async def delete_registration(reg_id: int, current_user: Annotated[dict, Depends(get_current_user)]):
-    user_id = current_user["github_id"]
-    async with async_session() as session:
-        from sqlalchemy import select
-        result = await session.execute(
-            select(Registration).where(Registration.id == reg_id, Registration.user_id == user_id)
-        )
-        reg = result.scalars().first()
-        if not reg:
-            raise HTTPException(status_code=404, detail="Registration not found")
-        reg.is_active = False
-        await session.commit()
-        return {"status": "deactivated"}

@@ -43,7 +43,16 @@ class TokenRequest(BaseModel):
 
 @router.post("/token")
 async def update_token(req: TokenRequest, current_user: Annotated[dict, Depends(get_current_user)]):
-    """Save or update a GitHub Personal Access Token."""
+    """Save or update a GitHub Personal Access Token.
+    Gated behind PAT_ENDPOINT_ENABLED env var — only available for internal testing."""
+    # Fix #5: Gate PAT endpoint behind feature flag
+    import os
+    if os.environ.get("PAT_ENDPOINT_ENABLED", "false").lower() != "true":
+        raise HTTPException(
+            status_code=403,
+            detail="PAT endpoint is not enabled. OAuth is the only login method available."
+        )
+
     try:
         await validate_token(req.token)
     except Exception:

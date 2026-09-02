@@ -63,6 +63,7 @@ async def orchestrate(payload: PRPayload, repo_context: RepoContext | None = Non
         security_findings=security_findings,
         repo=payload.repo,
         head_sha=payload.head_sha,
+        rollback_strategy=repo_context.rollback_strategy if repo_context else "branch"
     )
     
     return verdict_report

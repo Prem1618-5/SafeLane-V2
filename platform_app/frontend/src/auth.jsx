@@ -3,44 +3,50 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(localStorage.getItem('safelane_token'));
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem('safelane_token', token);
-      // Fetch user profile
-      fetch('/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      .then(res => {
-        if (!res.ok) throw new Error('Token invalid');
-        return res.json();
-      })
-      .then(data => setUser(data))
-      .catch(() => {
-        setToken(null);
-        localStorage.removeItem('safelane_token');
-      })
-      .finally(() => setLoading(false));
-    } else {
-      localStorage.removeItem('safelane_token');
+  const checkSession = async () => {
+    try {
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Not authenticated');
+      const data = await res.json();
+      setUser(data);
+      setIsAuthenticated(true);
+    } catch {
       setUser(null);
+      setIsAuthenticated(false);
+    } finally {
       setLoading(false);
     }
-  }, [token]);
+  };
+
+  useEffect(() => {
+    checkSession();
+  }, []);
 
   const login = () => {
     window.location.href = '/api/auth/github/login';
   };
 
-  const logout = () => {
-    setToken(null);
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // best-effort
+    }
+    setUser(null);
+    setIsAuthenticated(false);
   };
 
   return (
-    <AuthContext.Provider value={{ token, setToken, user, loading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, loading, login, logout, checkSession }}>
       {children}
     </AuthContext.Provider>
   );

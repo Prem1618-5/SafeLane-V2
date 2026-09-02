@@ -23,16 +23,16 @@ def render_comment(report: VerdictReport) -> str:
         "## SafeLane Change Assurance Report",
         f"**Score:** {report.confidence_score}/100 - {decision_display}",
         "",
-        "| Evidence Module | Status | Risk | Key Finding |",
+        "| Evidence Module | Status | Points Deducted | Key Finding |",
         "|---|---|---:|---|"
     ]
     
     for er in report.evidence_results:
         mod_name = MODULE_LABELS.get(er.module, er.module)
         status = er.status
-        risk = str(er.risk_score_modifier)
+        points = f"-{report.score_breakdown.get(er.module, 0):.1f}" if report.score_breakdown else f"-{er.risk_score_modifier}"
         finding = table_cell(er.findings[0] if er.findings else "No issues found")
-        lines.append(f"| {mod_name} | {status} | {risk} | {finding} |")
+        lines.append(f"| {mod_name} | {status} | {points} | {finding} |")
         
     lines.extend([
         "",

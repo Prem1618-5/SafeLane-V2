@@ -2,6 +2,7 @@ import os
 import hmac
 import hashlib
 import logging
+import json
 from typing import Optional
 
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException, Header
@@ -29,6 +30,13 @@ async def get_repo_context(repo: str) -> Optional[RepoContext]:
         registration = await get_registration(owner, repo_name)
         if registration and registration.is_active:
             token = decrypt_token(registration.encrypted_token)
+            custom_holidays = None
+            if registration.custom_holiday_dates:
+                try:
+                    custom_holidays = json.loads(registration.custom_holiday_dates)
+                except (json.JSONDecodeError, TypeError):
+                    custom_holidays = None
+
             return RepoContext(
                 registration_id=str(registration.id),
                 owner=owner,
@@ -38,6 +46,10 @@ async def get_repo_context(repo: str) -> Optional[RepoContext]:
                 azure_search_key=registration.azure_search_key,
                 azure_tenant_id=registration.azure_tenant_id,
                 azure_workspace_id=registration.azure_workspace_id,
+                rollback_strategy=registration.rollback_strategy or "branch",
+                custom_holiday_dates=custom_holidays,
+                deploy_window_start_utc=registration.deploy_window_start_utc,
+                deploy_window_end_utc=registration.deploy_window_end_utc,
             )
     except Exception as e:
         logger.warning(f"DB lookup failed for {repo}, falling back to env: {e}")

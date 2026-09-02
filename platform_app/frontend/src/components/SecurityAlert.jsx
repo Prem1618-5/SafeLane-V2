@@ -30,7 +30,7 @@ export default function SecurityAlert({ finding }) {
             </span>
           </div>
           <p className="mt-1.5 text-sm leading-6 opacity-90">{description}</p>
-          {(file || remediation) && (
+          {(file || remediation || finding.reference) && (
             <div className="mt-3 space-y-2 border-t border-current/10 pt-3 text-sm leading-5">
               {file && (
                 <p className="min-w-0 overflow-wrap-anywhere font-mono text-xs opacity-80">
@@ -39,6 +39,18 @@ export default function SecurityAlert({ finding }) {
               )}
               {remediation && (
                 <p><span className="font-semibold">Recommended fix: </span>{remediation}</p>
+              )}
+              {finding.reference && (
+                <p>
+                  <a 
+                    href={finding.reference} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 hover:opacity-80"
+                  >
+                    Reference ↗
+                  </a>
+                </p>
               )}
             </div>
           )}

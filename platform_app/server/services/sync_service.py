@@ -2,7 +2,8 @@ import logging
 import httpx
 from platform_app.server.services.db import (
     get_registration_by_id, update_registration_sync,
-    save_pr_record, save_activity_event, save_analysis_record
+    save_pr_record, save_activity_event, save_analysis_record,
+    get_analysis_by_sha, set_registration_inactive,
 )
 from platform_app.server.services.auth_service import decrypt_token
 from safelane.contracts import PRPayload, RepoContext
@@ -50,6 +51,18 @@ async def bootstrap_repository(registration_id: int):
             )
             
             prs_synced = 0
+            prs_skipped = 0
+
+            # C3: Handle 404 — repo deleted or access revoked
+            if pr_resp.status_code == 404:
+                await update_registration_sync(
+                    registration_id,
+                    error="Repository not found or access revoked on GitHub"
+                )
+                await set_registration_inactive(registration_id)
+                logger.warning(f"Repo {reg.owner}/{reg.repo} returned 404 — marked inactive")
+                return
+
             if pr_resp.status_code == 200:
                 prs = pr_resp.json()
                 for pr in prs:
@@ -66,6 +79,14 @@ async def bootstrap_repository(registration_id: int):
                     )
                     prs_synced += 1
                     
+                    # C2: Skip analysis if this exact (reg, PR, SHA) was already analyzed
+                    if head_sha:
+                        existing = await get_analysis_by_sha(registration_id, pr_number, head_sha)
+                        if existing:
+                            prs_skipped += 1
+                            logger.debug(f"Skipping PR #{pr_number} sha={head_sha[:7]} — already analyzed")
+                            continue
+
                     diff_text = ""
                     changed_files = []
                     try:
@@ -100,13 +121,13 @@ async def bootstrap_repository(registration_id: int):
                         )
                     except Exception as analysis_err:
                         logger.error(f"Failed to analyze PR {pr_number} during bootstrap: {analysis_err}")
-            elif pr_resp.status_code not in (404, 409):
+            elif pr_resp.status_code != 409:
                 raise Exception(f"GitHub API error fetching PRs: {pr_resp.status_code} {pr_resp.text}")
 
             await save_activity_event(
                 registration_id=registration_id,
                 event_type="sync_completed",
-                payload={"prs_synced": prs_synced},
+                payload={"prs_synced": prs_synced, "prs_skipped": prs_skipped},
             )
 
             # Analyze latest commits on default branch
@@ -115,10 +136,29 @@ async def bootstrap_repository(registration_id: int):
                 f"{GITHUB_API_BASE}/repos/{reg.owner}/{reg.repo}/commits",
                 params={"per_page": 5},
             )
+
+            # C3: Handle 404 on commits endpoint too
+            if commit_resp.status_code == 404:
+                await update_registration_sync(
+                    registration_id,
+                    error="Repository not found or access revoked on GitHub"
+                )
+                await set_registration_inactive(registration_id)
+                logger.warning(f"Repo {reg.owner}/{reg.repo} commits returned 404 — marked inactive")
+                return
+
             if commit_resp.status_code == 200:
                 commits = commit_resp.json()
                 for commit in commits:
                     sha = commit.get("sha")
+
+                    # C2: Skip if this exact commit SHA was already analyzed
+                    if sha:
+                        existing = await get_analysis_by_sha(registration_id, 0, sha)
+                        if existing:
+                            logger.debug(f"Skipping commit sha={sha[:7]} — already analyzed")
+                            continue
+
                     diff_text, changed_files = await get_commit_diff(token, reg.owner, reg.repo, sha)
                     if diff_text and changed_files:
                         payload = PRPayload(
@@ -136,7 +176,7 @@ async def bootstrap_repository(registration_id: int):
                             head_sha=sha,
                             report=report,
                         )
-            elif commit_resp.status_code not in (404, 409):
+            elif commit_resp.status_code != 409:
                 raise Exception(f"GitHub API error fetching commits: {commit_resp.status_code} {commit_resp.text}")
 
         await update_registration_sync(registration_id, error=None)

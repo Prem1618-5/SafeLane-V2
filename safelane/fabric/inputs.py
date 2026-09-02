@@ -1,5 +1,5 @@
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timezone
 from safelane.contracts import PRPayload
 
 MAX_DIFF_CHARS = 100_000
@@ -37,9 +37,9 @@ def normalize_pr_payload(raw: dict) -> PRPayload:
         try:
             timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         except Exception:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
     elif not isinstance(timestamp, datetime):
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
 
     return PRPayload(
         pr_number=int(raw.get("pr_number", 0)),

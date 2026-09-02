@@ -8,6 +8,7 @@ from platform_app.server.services.db import (
     get_analysis_by_pr, get_pr_records,
 )
 from platform_app.server.services import sync_service
+from safelane.contracts import MODULE_WEIGHTS
 
 logger = logging.getLogger('safelane.platform')
 
@@ -132,13 +133,26 @@ async def dashboard_pr_detail(
     evidence = json.loads(analysis.evidence_json) if analysis.evidence_json else []
     security_findings = json.loads(analysis.security_findings_json) if analysis.security_findings_json else []
 
+    # Fix #9: Extract changed files from evidence findings
+    # The verification_readiness module stores "Missing test for <file>" findings
+    changed_files = []
+    for ev in evidence:
+        for finding in ev.get("findings", []):
+            if finding.startswith("Missing test for "):
+                changed_files.append(finding.replace("Missing test for ", ""))
+            elif finding.startswith("Deleted test file detected: "):
+                changed_files.append(finding.replace("Deleted test file detected: ", ""))
+
     # Normalize evidence field names for frontend (backend uses module/risk_score_modifier/recommended_action)
     normalized_evidence = []
     for ev in evidence:
+        mod_id = ev.get("module", "Unknown")
+        modifier = ev.get("risk_modifier") or ev.get("risk_score_modifier", 0)
+        points = modifier * MODULE_WEIGHTS.get(mod_id, 0.25)
         normalized_evidence.append({
-            "module_name": ev.get("label") or ev.get("module_name") or ev.get("module", "Unknown"),
+            "module_name": ev.get("label") or ev.get("module_name") or mod_id,
             "status": ev.get("status", "pass"),
-            "risk_modifier": ev.get("risk_modifier") or ev.get("risk_score_modifier", 0),
+            "risk_modifier": points,
             "findings": ev.get("findings", []),
             "recommendation": ev.get("recommendation") or ev.get("recommended_action", ""),
         })
@@ -152,6 +166,7 @@ async def dashboard_pr_detail(
             "severity": sf.get("severity", "warning"),
             "file": sf.get("file"),
             "remediation": sf.get("remediation", ""),
+            "reference": sf.get("reference", ""),
         })
 
     decision = analysis.decision or ""
@@ -166,6 +181,7 @@ async def dashboard_pr_detail(
         "rollback_playbook": analysis.rollback_playbook,
         "evidence_results": normalized_evidence,
         "security_findings": normalized_security,
+        "changed_files": changed_files,
         "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
     }
 

@@ -46,7 +46,6 @@ def is_test_file(file_path: str) -> bool:
     return False
 
 async def run(request: AnalysisRequest, repo_context: RepoContext | None = None) -> EvidenceResult:
-    request.skip_autofix = True
 
     if not repo_context or not repo_context.gh_token:
         return EvidenceResult(

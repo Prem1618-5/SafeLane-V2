@@ -74,20 +74,42 @@ async def run(request: AnalysisRequest, repo_context: RepoContext | None = None)
         
     # Time of day (UTC)
     hour = dt.hour
-    if 6 <= hour < 9 or 16 <= hour < 20:
-        modifier += 5
-        findings.append("Deploy scheduled during fringe hours (6-9 or 16-20 UTC)")
-    elif 20 <= hour or hour < 6:
-        modifier += 15
-        findings.append("Deploy scheduled during off-hours (20-6 UTC)")
+    if repo_context and repo_context.deploy_window_start_utc is not None and repo_context.deploy_window_end_utc is not None:
+        start = repo_context.deploy_window_start_utc
+        end = repo_context.deploy_window_end_utc
+        if start <= end:
+            is_off_hours = not (start <= hour < end)
+        else:
+            is_off_hours = not (hour >= start or hour < end)
+            
+        if is_off_hours:
+            modifier += 15
+            findings.append(f"Deploy scheduled outside custom window ({start}-{end} UTC)")
+    else:
+        if 6 <= hour < 9 or 16 <= hour < 20:
+            modifier += 5
+            findings.append("Deploy scheduled during fringe hours (6-9 or 16-20 UTC)")
+        elif 20 <= hour or hour < 6:
+            modifier += 15
+            findings.append("Deploy scheduled during off-hours (20-6 UTC)")
         
     # Holiday proximity
-    holidays = get_us_holidays(dt.year)
+    holidays = set()
+    if repo_context and repo_context.custom_holiday_dates:
+        for ds in repo_context.custom_holiday_dates:
+            try:
+                holidays.add(datetime.strptime(ds, "%Y-%m-%d").date())
+            except ValueError:
+                pass
+    else:
+        holidays = get_us_holidays(dt.year)
+        
     d_date = dt.date()
     
     if d_date in holidays:
         modifier += 20
-        findings.append("Deploying on a US federal holiday increases rollback risk")
+        desc = "custom holiday" if repo_context and repo_context.custom_holiday_dates else "US federal holiday"
+        findings.append(f"Deploying on a {desc} increases rollback risk")
     elif d_date + timedelta(days=1) in holidays:
         modifier += 10
         findings.append("Deploy scheduled the day before a holiday")

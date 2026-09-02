@@ -1,10 +1,10 @@
 import os
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Integer, DateTime, Boolean, Text, select
+from sqlalchemy import String, Integer, DateTime, Boolean, Text, select, UniqueConstraint
 
 logger = logging.getLogger('safelane.platform')
 
@@ -49,8 +49,8 @@ class User(Base):
     github_username: Mapped[str] = mapped_column(String, nullable=False)
     github_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
     encrypted_token: Mapped[str] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 # ── Registration (connected repository) ──
@@ -68,16 +68,23 @@ class Registration(Base):
     azure_tenant_id: Mapped[str] = mapped_column(String, nullable=True)
     azure_workspace_id: Mapped[str] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_synced_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    last_synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     sync_error: Mapped[str] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    rollback_strategy: Mapped[str] = mapped_column(String, nullable=False, default="branch")
+    custom_holiday_dates: Mapped[str] = mapped_column(Text, nullable=True)
+    deploy_window_start_utc: Mapped[int] = mapped_column(Integer, nullable=True)
+    deploy_window_end_utc: Mapped[int] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 # ── Analysis Record ──
 
 class AnalysisRecord(Base):
     __tablename__ = "analysis_records"
+    __table_args__ = (
+        UniqueConstraint('registration_id', 'pr_number', 'head_sha', name='uq_analysis_reg_pr_sha'),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     registration_id: Mapped[int] = mapped_column(Integer, nullable=True)
     pr_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -88,7 +95,7 @@ class AnalysisRecord(Base):
     rollback_playbook: Mapped[str] = mapped_column(Text, nullable=True)
     evidence_json: Mapped[str] = mapped_column(Text, nullable=True)
     security_findings_json: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 # ── Pull Request Record ──
@@ -102,8 +109,8 @@ class PullRequestRecord(Base):
     state: Mapped[str] = mapped_column(String, nullable=True)
     head_sha: Mapped[str] = mapped_column(String, nullable=True)
     author: Mapped[str] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 # ── Activity Event ──
@@ -114,7 +121,7 @@ class ActivityEvent(Base):
     registration_id: Mapped[int] = mapped_column(Integer, nullable=True)
     event_type: Mapped[str] = mapped_column(String, nullable=False)
     payload_json: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 # ── Database initialization ──
@@ -134,7 +141,7 @@ async def upsert_user(github_id: int, github_username: str, encrypted_token: str
             user.github_username = github_username
             if encrypted_token:
                 user.encrypted_token = encrypted_token
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
         else:
             user = User(
                 github_id=github_id,
@@ -193,8 +200,18 @@ async def update_registration_sync(reg_id: int, error: str | None = None):
         result = await session.execute(select(Registration).where(Registration.id == reg_id))
         reg = result.scalars().first()
         if reg:
-            reg.last_synced_at = datetime.utcnow()
+            reg.last_synced_at = datetime.now(timezone.utc)
             reg.sync_error = error
+            await session.commit()
+
+
+async def set_registration_inactive(reg_id: int):
+    """Mark a registration as inactive (e.g. when GitHub returns 404)."""
+    async with async_session() as session:
+        result = await session.execute(select(Registration).where(Registration.id == reg_id))
+        reg = result.scalars().first()
+        if reg:
+            reg.is_active = False
             await session.commit()
 
 
@@ -248,6 +265,23 @@ async def get_analysis_by_pr(registration_id: int, pr_number: int) -> AnalysisRe
         return result.scalars().first()
 
 
+async def get_analysis_by_sha(registration_id: int, pr_number: int, head_sha: str) -> AnalysisRecord | None:
+    """Check if an analysis already exists for this exact (registration, PR, SHA) triplet.
+    Used to skip re-analysis of unchanged PRs/commits during sync."""
+    if not head_sha:
+        return None
+    async with async_session() as session:
+        result = await session.execute(
+            select(AnalysisRecord)
+            .where(
+                AnalysisRecord.registration_id == registration_id,
+                AnalysisRecord.pr_number == pr_number,
+                AnalysisRecord.head_sha == head_sha,
+            )
+        )
+        return result.scalars().first()
+
+
 # ── Pull Request Record CRUD ──
 
 async def save_pr_record(**kwargs) -> PullRequestRecord:
@@ -283,3 +317,4 @@ async def save_activity_event(registration_id: int | None, event_type: str, payl
         await session.commit()
         await session.refresh(event)
         return event
+
