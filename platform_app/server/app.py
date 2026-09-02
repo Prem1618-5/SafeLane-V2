@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="SafeLane — Change Assurance Platform",
-    version="2.0.0",
+    version="2.3.0",
     lifespan=lifespan,
 )
 
@@ -97,7 +97,7 @@ app.include_router(safelane_router, prefix="", tags=["safelane-compat"], include
 @app.get("/health")
 @app.get("/health/")
 async def health_check():
-    return {"status": "ok", "service": "safelane-platform", "version": "2.0.0"}
+    return {"status": "ok", "service": "safelane-platform", "version": "2.3.0"}
 
 
 # ── Prometheus /metrics endpoint ─────────────────────────────────────────────

@@ -228,6 +228,7 @@ async def save_analysis_record(
     head_sha: str | None,
     report,
 ) -> AnalysisRecord:
+    from sqlalchemy.exc import IntegrityError
     async with async_session() as session:
         record = AnalysisRecord(
             registration_id=registration_id,
@@ -241,9 +242,15 @@ async def save_analysis_record(
             security_findings_json=json.dumps([sf.model_dump() for sf in report.security_findings]),
         )
         session.add(record)
-        await session.commit()
-        await session.refresh(record)
-        return record
+        try:
+            await session.commit()
+            await session.refresh(record)
+            return record
+        except IntegrityError:
+            # ponytail: race on unique(registration_id, pr_number, head_sha) — return existing
+            await session.rollback()
+            existing = await get_analysis_by_sha(registration_id, pr_number, head_sha)
+            return existing
 
 
 async def get_analysis_records(registration_id: int, limit: int = 20) -> list[AnalysisRecord]:
