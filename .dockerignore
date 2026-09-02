@@ -1,0 +1,16 @@
+.git
+.agents
+.gemini
+.venv
+venv
+__pycache__
+*.py[cod]
+node_modules
+platform_app/frontend/node_modules
+platform_app/frontend/dist
+safelane.db
+*.db
+*.sqlite3
+.env
+.env.*
+! .env.example
