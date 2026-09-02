@@ -4,9 +4,9 @@ import { useAuth } from '../auth';
 import { Navigate } from 'react-router-dom';
 
 export default function SignIn() {
-  const { token, login } = useAuth();
+  const { isAuthenticated, login } = useAuth();
 
-  if (token) {
+  if (isAuthenticated) {
     return <Navigate to="/repos" replace />;
   }
 

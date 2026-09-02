@@ -10,13 +10,13 @@ import RepoDashboard from './pages/RepoDashboard';
 import PRDetail from './pages/PRDetail';
 
 function ProtectedRoute({ children }) {
-  const { token, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
   
-  if (!token) {
+  if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
   
