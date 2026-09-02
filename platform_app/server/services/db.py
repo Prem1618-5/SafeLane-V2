@@ -49,8 +49,8 @@ class User(Base):
     github_username: Mapped[str] = mapped_column(String, nullable=False)
     github_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
     encrypted_token: Mapped[str] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 # ── Registration (connected repository) ──
@@ -68,14 +68,14 @@ class Registration(Base):
     azure_tenant_id: Mapped[str] = mapped_column(String, nullable=True)
     azure_workspace_id: Mapped[str] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_synced_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    last_synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     sync_error: Mapped[str] = mapped_column(String, nullable=True)
     rollback_strategy: Mapped[str] = mapped_column(String, nullable=False, default="branch")
     custom_holiday_dates: Mapped[str] = mapped_column(Text, nullable=True)
     deploy_window_start_utc: Mapped[int] = mapped_column(Integer, nullable=True)
     deploy_window_end_utc: Mapped[int] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 # ── Analysis Record ──
@@ -95,7 +95,7 @@ class AnalysisRecord(Base):
     rollback_playbook: Mapped[str] = mapped_column(Text, nullable=True)
     evidence_json: Mapped[str] = mapped_column(Text, nullable=True)
     security_findings_json: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 # ── Pull Request Record ──
@@ -109,8 +109,8 @@ class PullRequestRecord(Base):
     state: Mapped[str] = mapped_column(String, nullable=True)
     head_sha: Mapped[str] = mapped_column(String, nullable=True)
     author: Mapped[str] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 # ── Activity Event ──
@@ -121,7 +121,7 @@ class ActivityEvent(Base):
     registration_id: Mapped[int] = mapped_column(Integer, nullable=True)
     event_type: Mapped[str] = mapped_column(String, nullable=False)
     payload_json: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 # ── Database initialization ──
@@ -317,3 +317,4 @@ async def save_activity_event(registration_id: int | None, event_type: str, payl
         await session.commit()
         await session.refresh(event)
         return event
+
