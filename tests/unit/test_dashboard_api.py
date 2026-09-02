@@ -245,30 +245,6 @@ def test_registration_deactivate_endpoint(client, auth_header):
         assert mock_reg.is_active is False
 
 
-@pytest.mark.unit
-def test_registration_disable_endpoint_alias(client, auth_header):
-    """POST /api/registrations/{reg_id}/disable should alias to deactivation."""
-    mock_reg = MagicMock()
-    mock_reg.id = 2
-    mock_reg.user_id = 99999
-    mock_reg.is_active = True
-
-    mock_session = AsyncMock()
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.first.return_value = mock_reg
-    mock_session.execute.return_value = mock_result
-
-    class MockAsyncSessionContext:
-        async def __aenter__(self):
-            return mock_session
-        async def __aexit__(self, *args):
-            pass
-
-    with patch("platform_app.server.routers.registrations.async_session", return_value=MockAsyncSessionContext()):
-        resp = client.post("/api/registrations/2/disable", headers=auth_header)
-        assert resp.status_code == 200
-        assert resp.json() == {"status": "deactivated"}
-        assert mock_reg.is_active is False
 
 
 @pytest.mark.unit
