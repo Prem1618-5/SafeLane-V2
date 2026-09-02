@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
 export default function SecurityAlert({ finding }) {
-  const { severity, title, description } = finding;
+  const { severity, title, description, file, remediation } = finding;
   
   let Icon = Info;
   let colors = 'bg-blue-50 border-blue-200 text-blue-800';
@@ -19,12 +19,31 @@ export default function SecurityAlert({ finding }) {
   }
 
   return (
-    <div className={`flex gap-3 p-4 rounded-lg border ${colors}`}>
-      <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${iconColor}`} />
-      <div>
-        <h4 className="font-semibold text-sm mb-1">{title}</h4>
-        <p className="text-sm opacity-90">{description}</p>
+    <article className={`rounded-xl border p-4 sm:p-5 ${colors}`}>
+      <div className="flex gap-3">
+        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${iconColor}`} aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-bold leading-5">{title}</h3>
+            <span className="rounded-full border border-current/20 bg-white/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]">
+              {severity}
+            </span>
+          </div>
+          <p className="mt-1.5 text-sm leading-6 opacity-90">{description}</p>
+          {(file || remediation) && (
+            <div className="mt-3 space-y-2 border-t border-current/10 pt-3 text-sm leading-5">
+              {file && (
+                <p className="min-w-0 overflow-wrap-anywhere font-mono text-xs opacity-80">
+                  <span className="font-sans font-semibold">File: </span>{file}
+                </p>
+              )}
+              {remediation && (
+                <p><span className="font-semibold">Recommended fix: </span>{remediation}</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </article>
   );
 }

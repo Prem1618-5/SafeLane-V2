@@ -9,8 +9,16 @@ const moduleIcons = {
   'Release Context': Rocket
 };
 
+const moduleLabels = {
+  change_intelligence: 'Change Intelligence',
+  incident_memory: 'Incident Memory',
+  verification_readiness: 'Verification Readiness',
+  release_context: 'Release Context',
+};
+
 export default function EvidenceCard({ moduleName, status, riskModifier, findings, recommendation, idx = 0 }) {
-  const Icon = moduleIcons[moduleName] || Info;
+  const displayName = moduleLabels[moduleName] || moduleName || 'Safety evidence';
+  const Icon = moduleIcons[displayName] || Info;
   
   let StatusIcon = Info;
   let statusColor = 'text-blue-500';
@@ -36,54 +44,54 @@ export default function EvidenceCard({ moduleName, status, riskModifier, finding
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 15 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: idx * 0.1, duration: 0.4, ease: 'easeOut' }}
+      transition={{ delay: idx * 0.05, duration: 0.28, ease: 'easeOut' }}
       whileHover={{ y: -2 }}
-      className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col h-full transition-shadow hover:shadow-md relative overflow-hidden"
+      className="relative flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
     >
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-slate-50 text-slate-700 border border-slate-100 shadow-sm">
-            <Icon className="w-5 h-5" />
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 text-slate-700 shadow-sm">
+            <Icon className="h-5 w-5" aria-hidden="true" />
           </div>
-          <h3 className="font-semibold text-slate-800 text-base">{moduleName}</h3>
+          <h3 className="text-base font-semibold text-slate-800">{displayName}</h3>
         </div>
-        <div className={`px-2.5 py-1 rounded-md text-xs font-bold tracking-wide border ${badgeClasses}`}>
+        <div className={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-bold tracking-wide ${badgeClasses}`}>
           {statusText}
         </div>
       </div>
 
-      <div className="flex-1 space-y-4 mt-2">
+      <div className="mt-1 flex-1 space-y-4">
         {findings && findings.length > 0 ? (
           <ul className="space-y-3">
             {findings.map((finding, index) => (
               <motion.li 
-                initial={{ opacity: 0, x: -5 }}
+                initial={{ opacity: 0, x: -4 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: (idx * 0.1) + (index * 0.05) + 0.2 }}
+                transition={{ delay: (idx * 0.05) + (index * 0.04) + 0.12 }}
                 key={index} 
-                className="flex gap-3 text-sm text-slate-600 leading-relaxed"
+                className="flex gap-3 text-sm leading-6 text-slate-600"
               >
-                <StatusIcon className={`w-4 h-4 mt-0.5 shrink-0 ${statusColor}`} />
-                <span>{finding}</span>
+                <StatusIcon className={`mt-1 h-4 w-4 shrink-0 ${statusColor}`} aria-hidden="true" />
+                <span className="min-w-0 overflow-wrap-anywhere">{finding}</span>
               </motion.li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-slate-500 italic px-2">No specific findings recorded.</p>
+          <p className="px-2 text-sm italic text-slate-500">No specific findings recorded.</p>
         )}
       </div>
 
       {recommendation && (
-        <div className="mt-5 pt-4 border-t border-slate-100 bg-slate-50/50 -mx-5 -mb-5 px-5 pb-5">
-          <div className="text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest">Recommendation</div>
-          <p className="text-sm text-slate-700">{recommendation}</p>
+        <div className="-mx-5 -mb-5 mt-5 border-t border-slate-100 bg-slate-50/50 px-5 pb-5 pt-4">
+          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-slate-400">Recommendation</div>
+          <p className="text-sm leading-6 text-slate-700">{recommendation}</p>
         </div>
       )}
       
       {riskModifier !== undefined && riskModifier !== null && (
-         <div className="absolute bottom-4 right-4 text-xs font-mono font-medium text-slate-400 bg-white/80 px-2 py-1 rounded border border-slate-100 backdrop-blur-sm">
+         <div className="absolute right-4 top-[4.5rem] rounded border border-slate-100 bg-white/80 px-2 py-1 font-mono text-xs font-medium tabular-nums text-slate-400 backdrop-blur-sm">
            Modifier: {riskModifier > 0 ? '+' : ''}{riskModifier}
          </div>
       )}

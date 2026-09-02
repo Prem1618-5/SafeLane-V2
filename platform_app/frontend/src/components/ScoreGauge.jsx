@@ -1,11 +1,10 @@
 ﻿import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
-export default function ScoreGauge({ score }) {
+export default function ScoreGauge({ score, size = 120 }) {
   const normalizedScore = Math.min(100, Math.max(0, score || 0));
-  
-  const size = 120;
-  const strokeWidth = 10;
+  const shouldReduceMotion = useReducedMotion();
+  const strokeWidth = Math.max(8, Math.round(size / 12));
   const center = size / 2;
   const radius = center - strokeWidth;
   const circumference = 2 * Math.PI * radius;
@@ -17,8 +16,12 @@ export default function ScoreGauge({ score }) {
   else colorClass = 'text-red-500';
 
   return (
-    <div className="relative flex flex-col items-center justify-center">
-      <svg width={size} height={size} className="transform -rotate-90">
+    <div
+      className="relative flex flex-col items-center justify-center"
+      role="img"
+      aria-label={`${normalizedScore} safety score out of 100`}
+    >
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
         <circle
           cx={center}
           cy={center}
@@ -29,9 +32,9 @@ export default function ScoreGauge({ score }) {
           fill="transparent"
         />
         <motion.circle
-          initial={{ strokeDashoffset: circumference }}
+          initial={shouldReduceMotion ? false : { strokeDashoffset: circumference }}
           animate={{ strokeDashoffset }}
-          transition={{ type: "spring", duration: 1.5, bounce: 0.1 }}
+          transition={shouldReduceMotion ? { duration: 0 } : { type: 'spring', duration: 1.1, bounce: 0.05 }}
           cx={center}
           cy={center}
           r={radius}
@@ -44,15 +47,15 @@ export default function ScoreGauge({ score }) {
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center">
-        <motion.span 
-          initial={{ opacity: 0, scale: 0.5 }}
+        <motion.span
+          initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.92 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2, type: "spring", bounce: 0.4 }}
-          className="text-3xl font-bold text-slate-800"
+          transition={shouldReduceMotion ? { duration: 0 } : { delay: 0.08, type: 'spring', bounce: 0.12, duration: 0.35 }}
+          className="text-3xl font-bold tabular-nums text-slate-800"
         >
           {normalizedScore}
         </motion.span>
-        <span className="text-xs text-slate-500 font-medium tracking-wide">SCORE</span>
+        <span className="text-[11px] font-semibold tracking-wide text-slate-500">SCORE</span>
       </div>
     </div>
   );
