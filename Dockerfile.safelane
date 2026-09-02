@@ -31,5 +31,5 @@ COPY --from=frontend-builder /frontend/dist ./platform_app/frontend/dist
 # Expose the application port
 EXPOSE 8000
 
-# ── Entry point with dynamic $PORT expansion for Railway ───────
-CMD uvicorn platform_app.server.app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1
+# ── Correct entry point (platform_app, not platform) ──────────
+CMD ["uvicorn", "platform_app.server.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
