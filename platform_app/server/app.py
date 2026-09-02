@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -11,7 +12,11 @@ from platform_app.server.routers import auth, github_setup, registrations, dashb
 from safelane.adapters.github import router as safelane_router
 
 logger = logging.getLogger('safelane.platform')
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:%(name)s:%(message)s",
+    stream=sys.stdout,
+)
 
 
 # ── OpenTelemetry setup (no-op if OTEL_EXPORTER_OTLP_ENDPOINT not set) ──────
@@ -90,6 +95,7 @@ app.include_router(safelane_router, prefix="", tags=["safelane-compat"], include
 
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.get("/health")
+@app.get("/health/")
 async def health_check():
     return {"status": "ok", "service": "safelane-platform", "version": "2.0.0"}
 

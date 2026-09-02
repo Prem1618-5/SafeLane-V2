@@ -6,7 +6,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile.safelane"
 
 [deploy]
+startCommand = "uvicorn platform_app.server.app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"
 healthcheckPath = "/health"
-healthcheckTimeout = 60
+healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
