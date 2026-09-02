@@ -8,22 +8,28 @@ GITHUB_API_BASE = "https://api.github.com"
 GITHUB_OAUTH_BASE = "https://github.com/login/oauth"
 
 
-async def exchange_code_for_token(code: str) -> str:
-    """Exchange an OAuth authorization code for a GitHub access token."""
+async def exchange_code_for_token(code: str, code_verifier: str | None = None) -> str:
+    """Exchange an OAuth authorization code for a GitHub access token.
+    If code_verifier is provided (PKCE flow), it is included in the token exchange."""
     client_id = os.environ.get("GITHUB_CLIENT_ID")
     client_secret = os.environ.get("GITHUB_CLIENT_SECRET")
 
     if not client_id or not client_secret:
         raise ValueError("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set")
 
+    payload = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "code": code,
+    }
+    # PKCE: include code_verifier if present (S256 challenge flow)
+    if code_verifier:
+        payload["code_verifier"] = code_verifier
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{GITHUB_OAUTH_BASE}/access_token",
-            json={
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "code": code,
-            },
+            json=payload,
             headers={"Accept": "application/json"},
         )
         if response.status_code != 200:

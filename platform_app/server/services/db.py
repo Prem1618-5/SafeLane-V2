@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Integer, DateTime, Boolean, Text, select
+from sqlalchemy import String, Integer, DateTime, Boolean, Text, select, UniqueConstraint
 
 logger = logging.getLogger('safelane.platform')
 
@@ -78,6 +78,9 @@ class Registration(Base):
 
 class AnalysisRecord(Base):
     __tablename__ = "analysis_records"
+    __table_args__ = (
+        UniqueConstraint('registration_id', 'pr_number', 'head_sha', name='uq_analysis_reg_pr_sha'),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     registration_id: Mapped[int] = mapped_column(Integer, nullable=True)
     pr_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -198,6 +201,16 @@ async def update_registration_sync(reg_id: int, error: str | None = None):
             await session.commit()
 
 
+async def set_registration_inactive(reg_id: int):
+    """Mark a registration as inactive (e.g. when GitHub returns 404)."""
+    async with async_session() as session:
+        result = await session.execute(select(Registration).where(Registration.id == reg_id))
+        reg = result.scalars().first()
+        if reg:
+            reg.is_active = False
+            await session.commit()
+
+
 # ── Analysis Record CRUD ──
 
 async def save_analysis_record(
@@ -244,6 +257,23 @@ async def get_analysis_by_pr(registration_id: int, pr_number: int) -> AnalysisRe
                 AnalysisRecord.pr_number == pr_number,
             )
             .order_by(AnalysisRecord.created_at.desc())
+        )
+        return result.scalars().first()
+
+
+async def get_analysis_by_sha(registration_id: int, pr_number: int, head_sha: str) -> AnalysisRecord | None:
+    """Check if an analysis already exists for this exact (registration, PR, SHA) triplet.
+    Used to skip re-analysis of unchanged PRs/commits during sync."""
+    if not head_sha:
+        return None
+    async with async_session() as session:
+        result = await session.execute(
+            select(AnalysisRecord)
+            .where(
+                AnalysisRecord.registration_id == registration_id,
+                AnalysisRecord.pr_number == pr_number,
+                AnalysisRecord.head_sha == head_sha,
+            )
         )
         return result.scalars().first()
 

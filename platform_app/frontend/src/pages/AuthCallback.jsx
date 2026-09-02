@@ -6,18 +6,23 @@ import { Loader2 } from 'lucide-react';
 export default function AuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { setToken } = useAuth();
+  const { checkSession } = useAuth();
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) {
-      localStorage.setItem('safelane_token', token);
-      setToken(token);
-      navigate('/repos', { replace: true });
-    } else {
+    const error = searchParams.get('error');
+    if (error) {
+      // OAuth failed — redirect to sign-in
       navigate('/', { replace: true });
+      return;
     }
-  }, [searchParams, navigate, setToken]);
+
+    // Cookie is already set by the server redirect — just verify the session
+    checkSession().then(() => {
+      navigate('/repos', { replace: true });
+    }).catch(() => {
+      navigate('/', { replace: true });
+    });
+  }, [searchParams, navigate, checkSession]);
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">

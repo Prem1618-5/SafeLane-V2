@@ -1,14 +1,19 @@
 const getHeaders = () => {
-  const token = localStorage.getItem('safelane_token');
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
   };
+};
+
+const fetchWithCredentials = async (url, options = {}) => {
+  return fetch(url, {
+    ...options,
+    credentials: 'include',
+  });
 };
 
 export const api = {
   getUserRepos: async () => {
-    const res = await fetch('/api/github/user-repos', { headers: getHeaders() });
+    const res = await fetchWithCredentials('/api/github/user-repos');
     if (!res.ok) {
       const err = new Error('Failed to fetch repos');
       if (res.status === 401) err.isAuthError = true;
@@ -18,25 +23,25 @@ export const api = {
   },
   
   getDashboardRepos: async () => {
-    const res = await fetch('/api/dashboard/repos', { headers: getHeaders() });
+    const res = await fetchWithCredentials('/api/dashboard/repos');
     if (!res.ok) throw new Error('Failed to fetch dashboard repos');
     return res.json();
   },
   
   getRepoDashboard: async (id) => {
-    const res = await fetch(`/api/dashboard/repos/${id}`, { headers: getHeaders() });
+    const res = await fetchWithCredentials(`/api/dashboard/repos/${id}`);
     if (!res.ok) throw new Error('Failed to fetch repo details');
     return res.json();
   },
   
   getPRDetail: async (id, prNumber) => {
-    const res = await fetch(`/api/dashboard/repos/${id}/prs/${prNumber}`, { headers: getHeaders() });
+    const res = await fetchWithCredentials(`/api/dashboard/repos/${id}/prs/${prNumber}`);
     if (!res.ok) throw new Error('Failed to fetch PR details');
     return res.json();
   },
   
   createRegistration: async (owner, repo) => {
-    const res = await fetch('/api/registrations/', {
+    const res = await fetchWithCredentials('/api/registrations/', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ owner, repo })
@@ -46,27 +51,24 @@ export const api = {
   },
   
   enableRegistration: async (id) => {
-    const res = await fetch(`/api/registrations/${id}/enable`, {
+    const res = await fetchWithCredentials(`/api/registrations/${id}/enable`, {
       method: 'POST',
-      headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to enable repo');
     return res.json();
   },
   
   disableRegistration: async (id) => {
-    const res = await fetch(`/api/registrations/${id}/disable`, {
+    const res = await fetchWithCredentials(`/api/registrations/${id}/disable`, {
       method: 'POST',
-      headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to disable repo');
     return res.json();
   },
   
   syncRepo: async (id) => {
-    const res = await fetch(`/api/dashboard/repos/${id}/sync`, {
+    const res = await fetchWithCredentials(`/api/dashboard/repos/${id}/sync`, {
       method: 'POST',
-      headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to sync repo');
     return res.json();

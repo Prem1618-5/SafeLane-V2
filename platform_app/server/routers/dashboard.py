@@ -132,6 +132,16 @@ async def dashboard_pr_detail(
     evidence = json.loads(analysis.evidence_json) if analysis.evidence_json else []
     security_findings = json.loads(analysis.security_findings_json) if analysis.security_findings_json else []
 
+    # Fix #9: Extract changed files from evidence findings
+    # The verification_readiness module stores "Missing test for <file>" findings
+    changed_files = []
+    for ev in evidence:
+        for finding in ev.get("findings", []):
+            if finding.startswith("Missing test for "):
+                changed_files.append(finding.replace("Missing test for ", ""))
+            elif finding.startswith("Deleted test file detected: "):
+                changed_files.append(finding.replace("Deleted test file detected: ", ""))
+
     # Normalize evidence field names for frontend (backend uses module/risk_score_modifier/recommended_action)
     normalized_evidence = []
     for ev in evidence:
@@ -166,6 +176,7 @@ async def dashboard_pr_detail(
         "rollback_playbook": analysis.rollback_playbook,
         "evidence_results": normalized_evidence,
         "security_findings": normalized_security,
+        "changed_files": changed_files,
         "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
     }
 

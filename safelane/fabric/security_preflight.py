@@ -8,14 +8,36 @@ SECURITY_PENALTIES = {"info": 0, "warning": 8, "critical": 25}
 MAX_SECURITY_PENALTY = 40
 
 # Rule families (pure Python stdlib + regex, NO paid dependencies)
-# 1. Secret exposure (critical)
+# 1. Secret exposure (critical) — vendor-specific token formats
 SECRET_PATTERNS = [
     (r"-----BEGIN.*PRIVATE KEY-----", "Private key PEM block exposed"),
     (r"ghp_[a-zA-Z0-9]{36}", "GitHub token exposed"),
     (r"sk-[a-zA-Z0-9]{20,}", "Secret key exposed (e.g. OpenAI)"),
     (r"AKIA[0-9A-Z]{16}", "AWS Access Key ID exposed"),
-    (r"xox[bpras]-[a-zA-Z0-9]+", "Slack token exposed")
+    (r"xox[bpras]-[a-zA-Z0-9]+", "Slack token exposed"),
 ]
+
+# 1b. Generic credential patterns — broader net, higher false-positive rate.
+#     Deliberately separate so we can apply placeholder exclusion to these only.
+GENERIC_SECRET_PATTERNS = [
+    (r"(?i)(password|passwd|pwd)\s*[:=]\s*[\"']([^\"']{4,})[\"']", "Hardcoded password literal"),
+    (r"(?i)(secret|api[_-]?key|access[_-]?key|credential)\s*[:=]\s*[\"']([^\"']{8,})[\"']", "Hardcoded secret/API key literal"),
+    (r"(?i)(auth[_-]?token|bearer)\s*[:=]\s*[\"']([^\"']{8,})[\"']", "Hardcoded auth token literal"),
+]
+
+# Values that are unambiguously placeholders — skip these to reduce false positives
+# on .env.example files, test fixtures, and documentation snippets.
+PLACEHOLDER_VALUES = {
+    "changeme", "change_me", "change-me",
+    "xxx", "xxxx", "xxxxxxxx",
+    "your-api-key-here", "your_api_key_here",
+    "your-secret-here", "your_secret_here",
+    "your-password-here", "your_password_here",
+    "your-token-here", "your_token_here",
+    "<password>", "<secret>", "<token>", "<api_key>",
+    "placeholder", "example", "test", "dummy",
+    "replace_me", "replace-me", "todo", "fixme",
+}
 
 # 2. CI/CD hardening (warning/critical)
 CICD_CRITICAL_PATTERNS = [
@@ -59,7 +81,7 @@ def run_preflight(diff: str, changed_files: list[str], pr_title: str = "", pr_bo
     try:
         combined_text = f"{pr_title}\n{pr_body}\n{diff}"
         
-        # 1. Secret exposure (Critical)
+        # 1. Secret exposure — vendor-specific (Critical)
         for pattern, rule_desc in SECRET_PATTERNS:
             if re.search(pattern, combined_text):
                 findings.append(SecurityFinding(
@@ -69,6 +91,23 @@ def run_preflight(diff: str, changed_files: list[str], pr_title: str = "", pr_bo
                     evidence=f"Redacted secret match found: {rule_desc}",
                     remediation="Remove the secret and rotate it immediately."
                 ))
+
+        # 1b. Secret exposure — generic credential patterns (Critical)
+        #     These use a capturing group for the secret value so we can exclude
+        #     known placeholder strings and reduce false positives.
+        for pattern, rule_desc in GENERIC_SECRET_PATTERNS:
+            match = re.search(pattern, combined_text)
+            if match:
+                # Group 2 is the captured secret value (the part inside quotes)
+                captured_value = match.group(2).strip().lower()
+                if captured_value not in PLACEHOLDER_VALUES:
+                    findings.append(SecurityFinding(
+                        rule_id="secret_exposure",
+                        severity="critical",
+                        file="multiple",
+                        evidence=f"Redacted secret match found: {rule_desc}",
+                        remediation="Remove the secret and rotate it immediately."
+                    ))
         
         # 2. CI/CD Hardening
         for pattern, rule_desc in CICD_CRITICAL_PATTERNS:
@@ -143,4 +182,3 @@ def apply_security_policy(score: int, findings: list[SecurityFinding]) -> tuple[
     final_score = max(0, score - penalty)
     has_critical = any(f.severity == "critical" for f in findings)
     return final_score, has_critical
-

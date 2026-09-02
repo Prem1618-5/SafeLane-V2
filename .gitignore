@@ -8,6 +8,7 @@
 # ── Agent Skills & Brain / Prompts ──
 .agents/
 .gemini/
+.Docs/
 
 # ── Audit, Reports & Scratch Artifacts ──
 ponytail_audit_report.md
@@ -39,6 +40,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
 
 # ── Virtual Environments ──
 venv/

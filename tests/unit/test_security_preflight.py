@@ -84,3 +84,43 @@ def test_preflight_crash_returns_warning(monkeypatch):
     assert len(findings) == 1
     assert findings[0].severity == "warning"
     assert "exception" in findings[0].evidence.lower()
+
+
+# ── C1 regression tests: generic credential patterns ──
+
+@pytest.mark.unit
+def test_hardcoded_password_regression_c1():
+    """Exact case that originally scored 92/100 and greenlighted.
+    This must NEVER greenlight again."""
+    diff = 'db_config = {"host": "localhost"}\nPassword="1234%ABC#"\n'
+    findings = run_preflight(diff, ["config.py"])
+    critical = [f for f in findings if f.severity == "critical" and "password" in f.evidence.lower()]
+    assert len(critical) >= 1, "Password='1234%ABC#' must trigger a critical finding"
+
+
+@pytest.mark.unit
+def test_placeholder_password_excluded():
+    """Placeholder values in .env.example files should NOT trigger."""
+    diff = 'password = "changeme"\n'
+    findings = run_preflight(diff, [".env.example"])
+    secret_findings = [f for f in findings if f.rule_id == "secret_exposure"]
+    assert len(secret_findings) == 0, "Placeholder 'changeme' should not trigger secret detection"
+
+
+@pytest.mark.unit
+def test_generic_api_key_detected():
+    """Generic api_key assignments with real values should be caught."""
+    diff = 'api_key = "sk_live_abc123def456ghi789"\n'
+    findings = run_preflight(diff, ["settings.py"])
+    critical = [f for f in findings if f.severity == "critical"]
+    assert len(critical) >= 1, "Hardcoded API key should trigger a critical finding"
+
+
+@pytest.mark.unit
+def test_generic_auth_token_detected():
+    """Generic auth_token assignments should be caught."""
+    diff = 'auth_token = "eyJhbGciOiJIUzI1NiJ9.payload.sig"\n'
+    findings = run_preflight(diff, ["client.py"])
+    critical = [f for f in findings if f.severity == "critical"]
+    assert len(critical) >= 1, "Hardcoded auth token should trigger a critical finding"
+
