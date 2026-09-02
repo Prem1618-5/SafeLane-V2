@@ -148,7 +148,7 @@ export default function RepoDashboard() {
         <div className="p-2 border-b border-slate-100">
         </div>
         
-        {prs.length === 0 ? (
+        {(!data.analyses || data.analyses.length === 0) ? (
           <div className="p-8 text-center text-slate-500">No analyses found yet.</div>
         ) : (
           <div className="overflow-x-auto">

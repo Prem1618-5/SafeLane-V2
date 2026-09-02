@@ -100,6 +100,8 @@ async def bootstrap_repository(registration_id: int):
                         )
                     except Exception as analysis_err:
                         logger.error(f"Failed to analyze PR {pr_number} during bootstrap: {analysis_err}")
+            elif pr_resp.status_code not in (404, 409):
+                raise Exception(f"GitHub API error fetching PRs: {pr_resp.status_code} {pr_resp.text}")
 
             await save_activity_event(
                 registration_id=registration_id,
@@ -134,6 +136,8 @@ async def bootstrap_repository(registration_id: int):
                             head_sha=sha,
                             report=report,
                         )
+            elif commit_resp.status_code not in (404, 409):
+                raise Exception(f"GitHub API error fetching commits: {commit_resp.status_code} {commit_resp.text}")
 
         await update_registration_sync(registration_id, error=None)
         logger.info(f"Successfully bootstrapped {reg.owner}/{reg.repo}")
